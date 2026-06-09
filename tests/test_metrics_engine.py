@@ -38,6 +38,18 @@ def test_profit_factor_zero_losses_is_inf():
     assert m.profit_factor == float("inf")
 
 
+def test_metrics_from_daily_returns_without_trades():
+    # Caso portfólio: sem lista de trades, mas com série de retornos diários.
+    idx = pd.date_range("2020-01-01", periods=300, freq="B")
+    rng = np.random.default_rng(7)
+    daily = pd.Series(rng.normal(0.0004, 0.01, len(idx)), index=idx)
+    m = compute_metrics([], daily_returns=daily)
+    assert m.n_trades == 0
+    assert m.equity_curve is not None and len(m.equity_curve) == len(idx)
+    assert m.cagr_pct != 0.0  # a série diária deve produzir CAGR/Sharpe não-triviais
+    assert m.sharpe != 0.0
+
+
 def test_engine_long_hits_target():
     # Preço sobe de forma limpa: um sinal long deve sair no alvo com lucro líquido.
     idx = pd.date_range("2021-01-01", periods=10, freq="B")

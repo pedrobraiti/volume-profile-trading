@@ -81,34 +81,35 @@ def compute_metrics(
         n_periods: nº de pregões cobertos (para anualizar CAGR quando não há série diária).
     """
     m = Metrics(n_trades=len(trades))
-    if not trades:
-        return m
 
-    rets = np.array([t.return_pct for t in trades])
-    r_multiples = np.array([t.r_multiple for t in trades])
-    wins = rets[rets > 0]
-    losses = rets[rets < 0]
+    if trades:
+        rets = np.array([t.return_pct for t in trades])
+        r_multiples = np.array([t.r_multiple for t in trades])
+        wins = rets[rets > 0]
+        losses = rets[rets < 0]
 
-    m.win_rate = len(wins) / len(rets)
-    m.avg_win_pct = float(wins.mean()) if len(wins) else 0.0
-    m.avg_loss_pct = float(losses.mean()) if len(losses) else 0.0
-    m.payoff_ratio = abs(m.avg_win_pct / m.avg_loss_pct) if m.avg_loss_pct != 0 else float("inf")
-    m.expectancy_pct = float(rets.mean())
-    m.expectancy_r = float(r_multiples.mean())
-    gross_profit = wins.sum()
-    gross_loss = abs(losses.sum())
-    m.profit_factor = float(gross_profit / gross_loss) if gross_loss > 0 else float("inf")
-    m.avg_holding_days = float(np.mean([t.holding_days for t in trades]))
+        m.win_rate = len(wins) / len(rets)
+        m.avg_win_pct = float(wins.mean()) if len(wins) else 0.0
+        m.avg_loss_pct = float(losses.mean()) if len(losses) else 0.0
+        m.payoff_ratio = (
+            abs(m.avg_win_pct / m.avg_loss_pct) if m.avg_loss_pct != 0 else float("inf")
+        )
+        m.expectancy_pct = float(rets.mean())
+        m.expectancy_r = float(r_multiples.mean())
+        gross_profit = wins.sum()
+        gross_loss = abs(losses.sum())
+        m.profit_factor = float(gross_profit / gross_loss) if gross_loss > 0 else float("inf")
+        m.avg_holding_days = float(np.mean([t.holding_days for t in trades]))
 
-    # Curva de capital composta a partir dos retornos por trade (1 posição por vez).
-    equity = np.cumprod(1.0 + rets)
-    m.total_return_pct = float(equity[-1] - 1.0)
-    m.max_drawdown_pct = _max_drawdown(equity)
-    m.calmar = (
-        float(m.total_return_pct / abs(m.max_drawdown_pct))
-        if m.max_drawdown_pct < 0
-        else float("inf")
-    )
+        # Curva de capital composta a partir dos retornos por trade (1 posição por vez).
+        equity = np.cumprod(1.0 + rets)
+        m.total_return_pct = float(equity[-1] - 1.0)
+        m.max_drawdown_pct = _max_drawdown(equity)
+        m.calmar = (
+            float(m.total_return_pct / abs(m.max_drawdown_pct))
+            if m.max_drawdown_pct < 0
+            else float("inf")
+        )
 
     if daily_returns is not None and len(daily_returns) > 1:
         idx = daily_returns.index
