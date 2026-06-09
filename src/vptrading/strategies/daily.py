@@ -31,11 +31,15 @@ class DailyParams:
     value_area_pct: float = 0.70   # fração que define a Value Area
     n_bins: int = 80               # resolução do histograma
     stop_atr_mult: float = 1.5     # stop = entrada ± mult × ATR
+    target_atr_mult: float = 3.0   # alvo (usado no breakout) = entrada ± mult × ATR
     atr_period: int = 14
-    trend_filter: bool = True      # se True, não fadeia contra a SMA longa
+    trend_filter: bool = True      # se True, alinha a direção à SMA longa
     trend_sma: int = 200
     allow_long: bool = True
     allow_short: bool = True
+    volume_mult: float = 0.0       # >0: exige volume do dia-sinal > mult × média (signal candle)
+    volume_avg: int = 20
+    max_holding_days: int = 15     # tempo máximo na posição antes de sair "por tempo"
 
 
 def _atr(df: pd.DataFrame, period: int) -> pd.Series:
@@ -72,6 +76,15 @@ def _trend_ok(close: pd.Series, p: DailyParams) -> tuple[pd.Series, pd.Series]:
     return long_ok.fillna(False), short_ok.fillna(False)
 
 
+def _volume_ok(df: pd.DataFrame, p: DailyParams) -> np.ndarray:
+    """Máscara de confirmação por volume (signal candle): volume do dia > mult × média recente."""
+    if p.volume_mult <= 0:
+        return np.ones(len(df), dtype=bool)
+    vol = df["Volume"]
+    avg = vol.rolling(p.volume_avg, min_periods=p.volume_avg).mean()
+    return (vol >= p.volume_mult * avg).fillna(False).to_numpy()
+
+
 def va_reversion_signals(
     df: pd.DataFrame, p: DailyParams, *, cache_key: str | None = None
 ) -> pd.DataFrame:
@@ -90,9 +103,10 @@ def va_reversion_signals(
     c = close.to_numpy()
     a = atr.to_numpy()
     lo, sh = long_ok.to_numpy(), short_ok.to_numpy()
+    vok = _volume_ok(df, p)
 
     for i in range(n):
-        if np.isnan(poc[i]) or np.isnan(a[i]):
+        if np.isnan(poc[i]) or np.isnan(a[i]) or not vok[i]:
             continue
         if p.allow_short and c[i] > vah[i] and sh[i]:
             signal[i] = -1
@@ -124,9 +138,10 @@ def edge_to_edge_signals(
     c = close.to_numpy()
     a = atr.to_numpy()
     lo, sh = long_ok.to_numpy(), short_ok.to_numpy()
+    vok = _volume_ok(df, p)
 
     for i in range(n):
-        if np.isnan(vah[i]) or np.isnan(a[i]):
+        if np.isnan(vah[i]) or np.isnan(a[i]) or not vok[i]:
             continue
         if p.allow_long and c[i] <= val[i] and lo[i]:
             signal[i] = 1
@@ -136,5 +151,45 @@ def edge_to_edge_signals(
             signal[i] = -1
             stop[i] = c[i] + p.stop_atr_mult * a[i]
             target[i] = val[i]
+
+    return pd.DataFrame({"signal": signal, "stop": stop, "target": target}, index=df.index)
+
+
+def va_breakout_signals(
+    df: pd.DataFrame, p: DailyParams, *, cache_key: str | None = None
+) -> pd.DataFrame:
+    """Sinais de BREAKOUT / atividade iniciante (opera A FAVOR do rompimento da Value Area).
+
+    Contraponto ao fade: quando o preço rompe a VAH com a tendência a favor, compra apostando na
+    continuação (aceitação fora do valor = início de tendência, §2/§5.4). Alvo por múltiplo de ATR,
+    stop no outro lado. Aqui o filtro de tendência alinha a direção do rompimento à SMA longa.
+    """
+    lv = _levels(df, p, cache_key)
+    atr = _atr(df, p.atr_period)
+    close = df["Close"]
+    long_ok, short_ok = _trend_ok(close, p)
+
+    n = len(df)
+    signal = np.zeros(n)
+    stop = np.full(n, np.nan)
+    target = np.full(n, np.nan)
+
+    vah, val = lv["vah"].to_numpy(), lv["val"].to_numpy()
+    c = close.to_numpy()
+    a = atr.to_numpy()
+    lo, sh = long_ok.to_numpy(), short_ok.to_numpy()
+    vok = _volume_ok(df, p)
+
+    for i in range(n):
+        if np.isnan(vah[i]) or np.isnan(a[i]) or not vok[i]:
+            continue
+        if p.allow_long and c[i] > vah[i] and lo[i]:
+            signal[i] = 1
+            stop[i] = c[i] - p.stop_atr_mult * a[i]
+            target[i] = c[i] + p.target_atr_mult * a[i]
+        elif p.allow_short and c[i] < val[i] and sh[i]:
+            signal[i] = -1
+            stop[i] = c[i] + p.stop_atr_mult * a[i]
+            target[i] = c[i] - p.target_atr_mult * a[i]
 
     return pd.DataFrame({"signal": signal, "stop": stop, "target": target}, index=df.index)
