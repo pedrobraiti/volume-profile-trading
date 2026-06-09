@@ -8,14 +8,18 @@ figuras e 7 tabelas.
 
 ## Principais achados
 
-- Existe um **edge real, porém modesto, na ponta comprada de índices líquidos** (SPY, QQQ) que
-  **sobrevive out-of-sample** (Profit Factor 1,4–2,1). Falha nas ações brasileiras tendenciais.
-- A **leitura de volume** (exaustão / "sem oferta" e absorção no fundo) é mais robusta que o perfil
-  puro. O **signal candle** (confirmação por volume) eleva o PF do QQQ de 1,1 para 1,9.
-- Duas "lendas" **não se sustentam**: a Regra dos 80% não atravessa 80% (e perde após custos na
-  amostra recente) e os day-types não preveem continuação (se algo, revertem).
-- Como sistema isolado **não bate buy & hold em retorno** (baixa exposição), mas entrega um fluxo
-  muito mais suave: portfólio diversificado com Sharpe ~0,5 e drawdown máximo de ~7%.
+- Em validação out-of-sample, os sleeves comprados em índices líquidos (SPY, QQQ) parecem ter um
+  edge modesto (Profit Factor 1,4–2,1) e a **leitura de volume** (exaustão / absorção no fundo) é
+  a tática mais robusta; o **signal candle** eleva o PF do QQQ de 1,1 para 1,9.
+- **Mas, sob testes de falsificação rigorosos (permutação de volume, ablação só-preço, entrada
+  aleatória, retorno excedente, bootstrap), o edge NÃO se sustenta como estratégia autônoma:** o
+  ganho é em boa parte exposição comprada a ativos que subiram. Nenhum sleeve gera alfa sobre a
+  própria exposição nem bate o risk-free a 1% de risco, e nenhum tem PF cujo IC 95% exclua 1,0. Só
+  no SPY o sinal de volume é estatisticamente real — porém pequeno e frágil na amostra.
+- Duas "lendas" **não se sustentam**: a Regra dos 80% não atravessa 80% (e perde após custos) e os
+  day-types não preveem continuação (se algo, revertem).
+- **Veredito honesto:** o Volume Profile é uma lente de contexto legítima e o filtro de volume
+  adiciona seletividade, mas não há edge econômico robusto e autônomo — não é "fórmula secreta".
 
 ## Como rodar
 
@@ -32,7 +36,10 @@ pytest -q
 # 3. Rodar todos os experimentos (baixa/cacheia dados, ~1 min) -> output/results.pkl
 python scripts/run_experiments.py
 
-# 4. Gerar figuras + relatório PDF -> output/relatorio_volume_profile.pdf
+# 4. (opcional) Testes de falsificação/ablação -> output/falsification.pkl
+python scripts/run_falsification.py
+
+# 5. Gerar figuras + relatório PDF (inclui §11 falsificação se o pkl existir)
 python scripts/build_report.py
 ```
 

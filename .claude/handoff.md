@@ -4,7 +4,20 @@
 > de forma relativamente detalhada. É o PRIMEIRO arquivo que a próxima sessão lê.
 > Mantenha-o vivo e específico — detalhado o bastante para retomar sem reconstruir o raciocínio.
 
-**Última atualização:** 2026-06-09 — projeto COMPLETO (1ª entrega: código + relatório PDF)
+**Última atualização:** 2026-06-09 — projeto COMPLETO + suíte de falsificação (2ª rodada)
+
+## ATUALIZAÇÃO IMPORTANTE (falsificação)
+A Claude web pediu testes de falsificação/ablação. Implementei `src/vptrading/analysis/
+falsification.py` + `scripts/run_falsification.py` (5 testes: permutação de volume, ablação
+só-preço, entrada aleatória, retorno excedente vs exposição/risk-free, bootstrap IC 95%). Config
+FIXA (não reotimizada) para validar a permutação; seed fixa. **Resultado humilhante e honesto:
+NENHUM sleeve passa nos 6 testes.** Só o SPY mostra sinal de volume estatisticamente real (shuffle
+p=0,002, ablação +, random p=0,028), mas falha nos testes econômicos (sem alfa sobre exposição,
+não bate risk-free, IC 95% de PF = [0,99; 2,83] inclui 1,0). O "edge" é majoritariamente exposição
+comprada / buy-the-dip. O relatório PDF (agora **19 páginas**) ganhou a §11 "Testes de falsificação"
+e teve sumário/conclusão/recomendações TEMPERADOS para refletir isso. Tabela 8 = veredito,
+Tabela 9 = ablação. Figs 16-18. Resultado salvo em `output/falsification.pkl`.
+
 
 ## Onde parei
 Entreguei o projeto inteiro de ponta a ponta: pipeline de backtesting funcional + **relatório PDF

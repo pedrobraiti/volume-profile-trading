@@ -451,6 +451,74 @@ def fig_resolution(results: dict, figdir: Path) -> str:
     return _save(fig, figdir, "16_resolution")
 
 
+def fig_shuffle_grid(fals: dict, figdir: Path) -> str:
+    """Distribuição de PF sob volume embaralhado (500×) vs PF real, por instrumento."""
+    sleeves = fals["sleeves"]
+    fig, axes = plt.subplots(2, 3, figsize=(13, 7))
+    for ax, (tk, d) in zip(axes.flat, sleeves.items()):
+        s = d["shuffle"]
+        ax.hist(s["shuffled_pf"], bins=30, color=GREY, alpha=0.7, edgecolor="white")
+        ax.axvline(min(s["real_pf"], 10), color=RED, lw=2,
+                   label=f"PF real = {s['real_pf']:.2f}")
+        ax.set_title(f"{tk.replace('.SA','')}  (p = {s['p_pf']:.3f})", fontsize=10)
+        ax.legend(fontsize=7)
+        ax.set_xlabel("Profit Factor (volume embaralhado)")
+    axes.flat[-1].axis("off")
+    fig.suptitle("Teste 1 — Permutação de volume: PF real vs 500 embaralhamentos.\n"
+                 "p baixo (< 0,05) = a relação preço↔volume agrega sinal (só o SPY passa claramente)",
+                 fontweight="bold")
+    return _save(fig, figdir, "17_shuffle")
+
+
+def fig_random_grid(fals: dict, figdir: Path) -> str:
+    """Distribuição do retorno médio por trade sob entradas aleatórias vs real."""
+    sleeves = fals["sleeves"]
+    fig, axes = plt.subplots(2, 3, figsize=(13, 7))
+    for ax, (tk, d) in zip(axes.flat, sleeves.items()):
+        rc = d["random"]
+        ax.hist(rc["rand_means"] * 100, bins=30, color=GREY, alpha=0.7, edgecolor="white")
+        ax.axvline(rc["real_mean"] * 100, color=RED, lw=2,
+                   label=f"real = {rc['real_mean']*100:.2f}%")
+        ax.axvline(0, color="black", lw=0.8)
+        ax.set_title(f"{tk.replace('.SA','')}  (p = {rc['p_value']:.3f})", fontsize=10)
+        ax.legend(fontsize=7)
+        ax.set_xlabel("Retorno médio/trade (entrada aleatória)")
+    axes.flat[-1].axis("off")
+    fig.suptitle("Teste 3 — Controle de viés long: retorno real vs 500 entradas aleatórias de "
+                 "mesmo tamanho/holding.\nA estratégia precisa estar à direita da massa (p < 0,05) "
+                 "para alegar timing real", fontweight="bold")
+    return _save(fig, figdir, "18_random_entry")
+
+
+def fig_bootstrap_ci(fals: dict, figdir: Path) -> str:
+    """Forest plot do IC 95% (bootstrap) do Profit Factor por instrumento."""
+    sleeves = fals["sleeves"]
+    fig, ax = plt.subplots(figsize=(10, 5.2))
+    tickers = list(sleeves.keys())
+    y = np.arange(len(tickers))
+    for i, tk in enumerate(tickers):
+        b = sleeves[tk]["bootstrap"]
+        pf = sleeves[tk]["real_pf"]
+        lo, hi = b["pf_lo"], min(b["pf_hi"], 5)
+        col = GREEN if b["pf_excludes_1"] else RED
+        ax.plot([lo, hi], [i, i], color=col, lw=3, solid_capstyle="round")
+        ax.plot(min(pf, 5), i, "o", color=NAVY, ms=8)
+    ax.axvline(1.0, color="black", lw=1.5, ls="--", label="PF = 1,0 (sem edge)")
+    ax.set_yticks(y)
+    ax.set_yticklabels([t.replace(".SA", "") for t in tickers])
+    ax.set_xlabel("Profit Factor (ponto = real; barra = IC 95% bootstrap)")
+    ax.set_title("Teste 5 — Intervalo de confiança do Profit Factor (10k reamostragens)\n"
+                 "Barra cruzando 1,0 (vermelha) = edge não distinguível de zero ao nível de 95%")
+    ax.legend()
+    return _save(fig, figdir, "19_bootstrap_ci")
+
+
+def generate_falsification_figures(fals: dict, figdir: Path | str) -> dict[str, str]:
+    figdir = Path(figdir)
+    figdir.mkdir(parents=True, exist_ok=True)
+    return {f.__name__: f(fals, figdir) for f in (fig_shuffle_grid, fig_random_grid, fig_bootstrap_ci)}
+
+
 def generate_all_figures(results: dict, figdir: Path | str) -> dict[str, str]:
     figdir = Path(figdir)
     figdir.mkdir(parents=True, exist_ok=True)

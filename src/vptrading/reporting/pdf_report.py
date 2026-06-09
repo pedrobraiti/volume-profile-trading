@@ -179,17 +179,25 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
         "80% das vezes (27–67% na amostra intraday recente) e foi negativa após custos; e os "
         "day-types não preveem continuação — se algo, dias 'bearish' repicam mais (reversão).",
         f"<b>Como sistema isolado, o edge não bate buy &amp; hold em retorno</b> (baixa exposição), "
-        f"mas entrega um fluxo muito mais suave: o portfólio diversificado (sleeves validados OOS) "
+        f"mas entrega um fluxo mais suave: o portfólio diversificado (sleeves validados OOS) "
         f"rendeu CAGR {_pct(pm['cagr_pct'])} com drawdown máximo de apenas {_pct(pm['max_drawdown_pct'])} "
         f"e Sharpe {_num(pm['sharpe'])}.",
+        "<b>Sob falsificação rigorosa, o edge não se sustenta como estratégia autônoma.</b> "
+        "Permutação de volume, ablação só-preço, controle de entrada aleatória, retorno excedente e "
+        "bootstrap (§11) mostram que o ganho é, em boa parte, <b>exposição comprada</b> a ativos "
+        "que subiram. Nenhum sleeve gera alfa sobre a própria exposição nem bate o risk-free a 1% "
+        "de risco, e nenhum tem Profit Factor cujo IC 95% exclua 1,0. Só no SPY o sinal de volume é "
+        "estatisticamente real — porém pequeno e frágil no tamanho de amostra.",
     ]
     for f in findings:
         S.append(Paragraph("• " + f, ss["VBullet"]))
     S.append(Spacer(1, 0.3 * cm))
     S.append(Paragraph(
-        "Em uma frase: o Volume Profile é uma <b>lente de contexto e uma ferramenta de timing</b> "
-        "com edge estatístico pequeno mas verificável em ativos líquidos — não a 'fórmula secreta' "
-        "vendida em vídeos. O valor está na gestão de risco e na seletividade, não na taxa de acerto.",
+        "Em uma frase: o Volume Profile é uma <b>lente de contexto</b> legítima e o filtro de volume "
+        "<b>adiciona seletividade real</b>, mas não encontramos um <b>edge econômico robusto e "
+        "autônomo</b> — não é a 'fórmula secreta' vendida em vídeos. O valor está na leitura de "
+        "contexto e na gestão de risco; uso operacional exige ceticismo, execução barata e "
+        "expectativas modestas.",
         ss["Body"]))
     S.append(PageBreak())
 
@@ -438,11 +446,90 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
                            "'400 rows' importa mais no intraday fino do que aqui.", ss["Cap"]))
         S.append(PageBreak())
 
+    # ---------------------------------------------------------------- Falsificação / ablação
+    if "falsification" in results:
+        fals = results["falsification"]
+        sl = fals["sleeves"]
+        S.append(Paragraph("11. Testes de falsificação e ablação: o edge é real?", ss["H1"]))
+        S.append(Paragraph(
+            "Antes de confiar no sleeve de Exaustão de volume, submetemo-lo a cinco testes de "
+            "falsificação com config <b>fixa</b> (sem reotimização, seed fixa) para responder: o "
+            "edge vem do <b>volume e da estrutura</b>, ou é só <b>viés comprado / buy-the-dip</b> "
+            "num ativo que sobe? Os testes: (1) permutação de volume; (2) ablação só-preço; "
+            "(3) controle de entrada aleatória; (4) retorno excedente sobre exposição e risk-free "
+            "(CDI 14,5% BRL / T-bill ~2% USD); (5) IC 95% por bootstrap.", ss["Body"]))
+
+        # Tabela-veredito
+        vrows = [["Ativo", "Shuffle\nvolume", "Bate\nsó-preço", "Bate long\naleatório",
+                  "Alfa s/\nexposição", "Bate\nrisk-free", "IC PF\nexclui 1", "PASSA\nTODOS"]]
+        vcolor = []
+        ri = 1
+        for tk, d in sl.items():
+            v = d["verdict"]
+            order = ["sobrevive_shuffle", "bate_so_preco", "bate_long_aleatorio",
+                     "alfa_sobre_exposicao", "bate_risk_free", "ic_pf_exclui_1", "passa_todos"]
+            row = [tk.replace(".SA", "")]
+            for ci, key in enumerate(order, start=1):
+                ok = v[key]
+                row.append("SIM" if ok else "não")
+                vcolor.append(("TEXTCOLOR", (ci, ri), (ci, ri), GREEN if ok else RED))
+            vrows.append(row)
+            ri += 1
+        vt = _table(vrows, [2.0 * cm] + [1.85 * cm] * 7, font=7.5)
+        vt.setStyle(TableStyle(vcolor))
+        S.append(vt)
+        S.append(Paragraph("Tabela 8 — Veredito por sleeve. <b>Nenhum dos cinco instrumentos passa "
+                           "nos seis testes.</b> O SPY é o único que mostra sinal de volume "
+                           "estatisticamente real (passa shuffle, ablação e entrada aleatória), mas "
+                           "falha nos testes econômicos.", ss["Cap"]))
+
+        # Ablação (vol vs só-preço)
+        ab_rows = [["Ativo", "Expectância c/ volume", "Expectância só-preço", "Δ (volume agrega)"]]
+        for tk, d in sl.items():
+            a = d["ablation"]
+            ab_rows.append([tk.replace(".SA", ""), _pct(a["vol_exp"], 3), _pct(a["price_exp"], 3),
+                            _pct(a["delta_exp"], 3)])
+        S.append(_table(ab_rows, [3.0 * cm, 4.5 * cm, 4.5 * cm, 4.0 * cm]))
+        S.append(Paragraph("Tabela 9 — Ablação só-preço: o filtro de volume quase dobra a "
+                           "expectância em SPY/QQQ (mais seletivo), mas atrapalha nas ações "
+                           "brasileiras. Volume agrega seletividade — em alguns ativos.", ss["Cap"]))
+        S.append(PageBreak())
+
+        S.append(_img(figdir / "17_shuffle.png", width=16.0 * cm))
+        S.append(Paragraph("Figura 16 — Teste de permutação de volume. Só no SPY o PF real (linha "
+                           "vermelha) está claramente na cauda direita dos 500 embaralhamentos "
+                           "(p = 0,002): a relação preço↔volume carrega sinal. Nos demais, volume "
+                           "embaralhado faz tão bem quanto o real.", ss["Cap"]))
+        S.append(_img(figdir / "19_bootstrap_ci.png", width=14.5 * cm))
+        S.append(Paragraph("Figura 17 — IC 95% do Profit Factor (bootstrap, 10k). Todas as barras "
+                           "cruzam 1,0 — inclusive o SPY (limite inferior 0,99). Com ~80–150 trades, "
+                           "o edge <b>não é estatisticamente distinguível de zero</b> a 95%.", ss["Cap"]))
+        S.append(PageBreak())
+
+        S.append(_img(figdir / "18_random_entry.png", width=16.0 * cm))
+        S.append(Paragraph("Figura 18 — Controle de entrada aleatória. Só o SPY bate o 'long "
+                           "aleatório' (p = 0,028); QQQ/BR não — seu retorno é compatível com "
+                           "estar comprado em datas quaisquer.", ss["Cap"]))
+        S.append(Paragraph("<b>Veredito honesto.</b> O teste é implacável e instrutivo: o ganho "
+                           "aparente das estratégias é, em sua maior parte, <b>exposição comprada</b> "
+                           "a ativos que subiram — não um edge de volume robusto. O filtro de volume "
+                           "<i>adiciona seletividade</i> (ablação positiva em SPY/QQQ) e, no SPY, a "
+                           "relação preço↔volume é <i>estatisticamente real</i>. Mas nenhum sleeve "
+                           "gera alfa sobre a própria exposição, nenhum bate o risk-free a 1% de "
+                           "risco, e nenhum tem PF cujo IC 95% exclua 1,0. Conclusão: a 1% de risco, "
+                           "como estratégia autônoma, <b>não há edge econômico demonstrável</b>; o "
+                           "que sobra (no SPY) é um sinal pequeno, real, mas estatisticamente frágil "
+                           "no tamanho de amostra disponível.", ss["Body"]))
+        S.append(PageBreak())
+
     # ---------------------------------------------------------------- Recomendações
-    S.append(Paragraph("11. Recomendações de parâmetros", ss["H1"]))
+    S.append(Paragraph("12. Recomendações de parâmetros", ss["H1"]))
     S.append(Paragraph(
-        "Com base na varredura e na validação out-of-sample, estas são as variáveis recomendadas. "
-        "Os dois perfis compartilham o mesmo edge; diferem no apetite de risco.", ss["Body"]))
+        "Com base na varredura e na validação out-of-sample, estas são as variáveis que melhor se "
+        "comportaram. <b>Importante (à luz do §11):</b> estas recomendações descrevem a "
+        "configuração <i>menos ruim</i> e mais robusta historicamente — não um edge econômico "
+        "comprovado. Trate-as como ponto de partida para estudo e paper trading, não como sistema "
+        "pronto para capital real.", ss["Body"]))
 
     rec_rows = [
         ["Variável", "Perfil conservador", "Perfil agressivo"],
@@ -473,7 +560,7 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
     S.append(PageBreak())
 
     # ---------------------------------------------------------------- Limitações
-    S.append(Paragraph("12. Limitações e conclusão honesta", ss["H1"]))
+    S.append(Paragraph("13. Limitações e conclusão honesta", ss["H1"]))
     for b in [
         "<b>Aproximação do perfil:</b> sem dados tick/intraday longos, o volume é distribuído "
         "uniformemente no range diário. É a prática padrão, mas é uma aproximação do perfil 'real'.",
@@ -491,12 +578,15 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
     S.append(Spacer(1, 0.3 * cm))
     S.append(Paragraph(
         "<b>Conclusão.</b> O Volume Profile não é mágica nem charlatanismo. É uma lente legítima de "
-        "leilão (por que o preço gruda onde há volume) e fornece níveis objetivos. Há um edge "
-        "estatístico real — pequeno, comprado, em ativos líquidos, e melhor capturado pela leitura "
-        "de volume (exaustão) do que pelas regras folclóricas (80%, day-types). Como gerador de "
-        "riqueza isolado, perde para buy &amp; hold; como ferramenta de timing de baixo drawdown "
-        "dentro de um portfólio diversificado e bem-executado, tem mérito defensável. A métrica que "
-        "importa é a expectância após custos — e ela é positiva, mas exige seletividade, não fé.",
+        "leilão (por que o preço gruda onde há volume) e fornece níveis objetivos, e o filtro de "
+        "volume demonstravelmente adiciona seletividade. Mas a parte mais honesta deste estudo é o "
+        "§11: sob falsificação rigorosa, o que parecia um edge é, em boa parte, <b>exposição "
+        "comprada</b> a ativos que subiram. Só no SPY o sinal de volume é estatisticamente real — e "
+        "mesmo lá não gera alfa sobre a própria exposição, não bate o risk-free a 1% de risco, e "
+        "seu Profit Factor não é distinguível de 1,0 a 95% de confiança. <b>Não encontramos um edge "
+        "econômico autônomo e robusto.</b> Isso não invalida o Volume Profile como ferramenta de "
+        "contexto e gestão de risco — invalida a promessa de lucro fácil. A métrica que importa é a "
+        "expectância após custos, validada contra o acaso; e a evidência pede ceticismo, não fé.",
         ss["Body"]))
     S.append(Spacer(1, 0.5 * cm))
     S.append(Paragraph("<i>Gerado por pipeline reproduzível (Python). Código e dados versionados. "
