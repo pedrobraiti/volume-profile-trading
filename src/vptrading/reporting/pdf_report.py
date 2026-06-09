@@ -407,8 +407,39 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
                        "entrega menos retorno e muito menos sofrimento.", ss["Cap"]))
     S.append(PageBreak())
 
+    # ---------------------------------------------------------------- Estudos complementares
+    if "complementary" in results:
+        comp = results["complementary"]
+        S.append(Paragraph("10. Estudos complementares (§4.3, §6, §7)", ss["H1"]))
+        S.append(Paragraph(
+            "Para esgotar o documento de referência, testamos também as leituras de volume 'cru' "
+            "(absorção e movimento saudável), o efeito do 'signal candle' e a sensibilidade à "
+            "resolução do histograma.", ss["Body"]))
+
+        S.append(Paragraph("10.1 Leituras de volume cru: absorção e movimento saudável", ss["H2"]))
+        S.append(_img(figdir / "14_volume_events.png", width=15.5 * cm))
+        S.append(Paragraph("Figura 13 — A <b>absorção no fundo</b> (nova mínima + volume enorme + "
+                           "corpo pequeno) precede repiques fortes, sobretudo nas ações brasileiras "
+                           "(VALE3 +1,9%, PETR4 +1,6% vs ~0,35% de baseline). Já o 'movimento "
+                           "saudável' (candle e volume grandes) <b>não</b> supera o baseline em "
+                           "índices — efeito ≠ resultado, ao contrário do prometido.", ss["Cap"]))
+
+        S.append(Paragraph("10.2 O 'signal candle' (confirmação por volume) tem mérito", ss["H2"]))
+        S.append(_img(figdir / "15_signal_candle.png", width=14.5 * cm))
+        S.append(Paragraph("Figura 14 — Exigir um spike de volume no dia do sinal (§7) melhora "
+                           "nitidamente o QQQ (Profit Factor 1,1 → 1,9 em ~1,2–1,5× a média), mas "
+                           "filtra demais acima disso. Confirma a recomendação de 'esperar o candle "
+                           "de volume' — com moderação.", ss["Cap"]))
+
+        S.append(Paragraph("10.3 Resolução do perfil (a regra dos '400 rows')", ss["H2"]))
+        S.append(_img(figdir / "16_resolution.png", width=13.5 * cm))
+        S.append(Paragraph("Figura 15 — O edge é estável de 40 a 400 faixas de preço; mais "
+                           "resolução ajuda só marginalmente no swing diário. A insistência em "
+                           "'400 rows' importa mais no intraday fino do que aqui.", ss["Cap"]))
+        S.append(PageBreak())
+
     # ---------------------------------------------------------------- Recomendações
-    S.append(Paragraph("10. Recomendações de parâmetros", ss["H1"]))
+    S.append(Paragraph("11. Recomendações de parâmetros", ss["H1"]))
     S.append(Paragraph(
         "Com base na varredura e na validação out-of-sample, estas são as variáveis recomendadas. "
         "Os dois perfis compartilham o mesmo edge; diferem no apetite de risco.", ss["Body"]))
@@ -434,13 +465,15 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
                        "aceita drawdown maior por mais CAGR, sem ilusão de Sharpe superior.", ss["Cap"]))
     S.append(Paragraph(
         "<b>O que mais melhorou os resultados (em ordem de impacto):</b> (1) operar só comprado em "
-        "índices líquidos; (2) usar a leitura de volume (exaustão) em vez do perfil puro; (3) o "
-        "filtro de tendência, que cortou o drawdown de −74% para −12% na reversão; (4) janelas "
-        "mais longas (40 dias) no sinal de exaustão; (5) diversificar em portfólio.", ss["Body"]))
+        "índices líquidos; (2) usar a leitura de volume (exaustão/absorção no fundo) em vez do "
+        "perfil puro; (3) o filtro de tendência, que cortou o drawdown de −74% para −12% na "
+        "reversão; (4) janelas mais longas (40 dias) no sinal de exaustão; (5) confirmar com "
+        "spike de volume (signal candle) — elevou o PF do QQQ de 1,1 para 1,9; (6) diversificar "
+        "em portfólio.", ss["Body"]))
     S.append(PageBreak())
 
     # ---------------------------------------------------------------- Limitações
-    S.append(Paragraph("11. Limitações e conclusão honesta", ss["H1"]))
+    S.append(Paragraph("12. Limitações e conclusão honesta", ss["H1"]))
     for b in [
         "<b>Aproximação do perfil:</b> sem dados tick/intraday longos, o volume é distribuído "
         "uniformemente no range diário. É a prática padrão, mas é uma aproximação do perfil 'real'.",

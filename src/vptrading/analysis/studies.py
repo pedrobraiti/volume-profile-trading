@@ -87,6 +87,56 @@ def volume_divergence_study(
     }
 
 
+def volume_event_study(
+    df: pd.DataFrame, *, window: int = 60, horizon: int = 5, hi_pct: float = 0.75
+) -> dict:
+    """Testa as três leituras de volume "cru" do §6 contra o retorno futuro.
+
+    - **Movimento saudável** (esforço=resultado): candle de alta com range grande E volume alto ->
+      espera-se continuação (retorno futuro positivo).
+    - **Absorção no topo**: nova máxima + volume muito alto + corpo pequeno (uma "parede" absorve) ->
+      espera-se reversão para baixo (retorno futuro negativo).
+    - **Absorção no fundo**: nova mínima + volume muito alto + corpo pequeno -> reversão para cima.
+
+    Compara o retorno futuro de ``horizon`` dias de cada evento com o baseline.
+    """
+    close = df["Close"]
+    open_ = df["Open"]
+    high = df["High"]
+    low = df["Low"]
+    vol = df["Volume"]
+
+    rng = (high - low).replace(0, np.nan)
+    body = (close - open_).abs()
+    body_ratio = (body / rng).fillna(1.0)
+
+    vol_hi = vol >= vol.rolling(window).quantile(hi_pct)
+    rng_hi = rng >= rng.rolling(window).quantile(hi_pct)
+    new_high = close >= close.rolling(20).max()
+    new_low = close <= close.rolling(20).min()
+    small_body = body_ratio <= 0.35
+
+    fwd = close.shift(-horizon) / close - 1.0
+
+    healthy_up = vol_hi & rng_hi & (close > open_)
+    absorption_top = vol_hi & new_high & small_body
+    absorption_bot = vol_hi & new_low & small_body
+
+    def stats(mask):
+        v = fwd[mask].dropna()
+        return {"n": int(len(v)),
+                "mean_fwd_pct": float(v.mean()) if len(v) else np.nan,
+                "win_pct": float((v > 0).mean()) if len(v) else np.nan}
+
+    return {
+        "horizon": horizon,
+        "baseline": stats(pd.Series(True, index=df.index)),
+        "movimento_saudavel": stats(healthy_up),
+        "absorcao_topo": stats(absorption_top),
+        "absorcao_fundo": stats(absorption_bot),
+    }
+
+
 def rule80_diagnostics(trades: list) -> dict:
     """Diagnóstico da Regra dos 80%: dado o gatilho, com que frequência atinge o extremo oposto."""
     if not trades:

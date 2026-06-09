@@ -33,6 +33,7 @@ from vptrading.analysis.studies import (  # noqa: E402
     day_type_forward_returns,
     rule80_diagnostics,
     volume_divergence_study,
+    volume_event_study,
 )
 from vptrading.backtest.costs import COST_MODELS, CostModel  # noqa: E402
 from vptrading.backtest.metrics import compute_metrics  # noqa: E402
@@ -311,6 +312,43 @@ def cost_sensitivity() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def complementary_studies() -> dict:
+    """Estudos complementares: leituras de volume §6, signal candle §7 e resolução §4.3."""
+    out: dict = {}
+
+    # §6 — leituras de volume "cru" (movimento saudável, absorção) por instrumento.
+    out["volume_events"] = {tk: volume_event_study(load_daily(tk)) for tk in INSTRUMENTS}
+
+    # §7 — efeito do "signal candle" (confirmação por volume) na Edge-to-Edge.
+    conf = {}
+    for tk in ["SPY", "QQQ"]:
+        df = load_daily(tk)
+        cm = COST_MODELS[INSTRUMENTS[tk].market]
+        rows = []
+        for vm in [0.0, 1.2, 1.5, 2.0]:
+            p = DailyParams(window=60, stop_atr_mult=1.5, max_holding_days=15,
+                            allow_long=True, allow_short=False, trend_filter=True, volume_mult=vm)
+            m = run_daily_strategy(df, edge_to_edge_signals, p, cost_model=cm, cache_key=tk).metrics
+            rows.append({"volume_mult": vm, "n_trades": m.n_trades, "win_rate": m.win_rate,
+                         "expectancy_pct": m.expectancy_pct, "profit_factor": m.profit_factor})
+        conf[tk] = pd.DataFrame(rows)
+    out["signal_candle"] = conf
+
+    # §4.3 — robustez à resolução do histograma (nº de "rows").
+    df = load_daily("SPY")
+    cm = COST_MODELS["US"]
+    rows = []
+    for nb in [40, 80, 160, 400]:
+        p = DailyParams(window=60, n_bins=nb, stop_atr_mult=1.5, max_holding_days=15,
+                        allow_long=True, allow_short=False, trend_filter=True)
+        m = run_daily_strategy(df, edge_to_edge_signals, p, cost_model=cm,
+                               cache_key=f"SPY_nb{nb}").metrics
+        rows.append({"n_bins": nb, "n_trades": m.n_trades, "expectancy_pct": m.expectancy_pct,
+                     "profit_factor": m.profit_factor, "cagr_pct": m.cagr_pct})
+    out["resolution"] = pd.DataFrame(rows)
+    return out
+
+
 def sample_profile() -> dict:
     """Perfil de volume composite recente do SPY (para o gráfico educativo)."""
     df = load_daily("SPY").iloc[-120:]
@@ -373,7 +411,10 @@ def main():
     cstab.to_csv(DATA_OUT / "cost_sensitivity.csv", index=False)
     results["cost_sensitivity"] = cstab
 
-    print("[9/9] Perfil de volume de exemplo...")
+    print("[9/10] Estudos complementares (§4.3, §6, §7)...")
+    results["complementary"] = complementary_studies()
+
+    print("[10/10] Perfil de volume de exemplo...")
     results["sample_profile"] = sample_profile()
 
     with open(OUT / "results.pkl", "wb") as f:

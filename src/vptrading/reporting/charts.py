@@ -393,6 +393,64 @@ def fig_strategy_vs_buyhold(results: dict, figdir: Path) -> str:
     return _save(fig, figdir, "13_strategy_vs_buyhold")
 
 
+def fig_volume_events(results: dict, figdir: Path) -> str:
+    """Leituras de volume cru (§6): retorno futuro 5d por tipo de evento, por instrumento."""
+    ve = results["complementary"]["volume_events"]
+    insts = list(ve.keys())
+    keys = [("baseline", "Baseline", GREY), ("movimento_saudavel", "Mov. saudável (candle+vol grande)", BLUE),
+            ("absorcao_topo", "Absorção no topo", RED), ("absorcao_fundo", "Absorção no fundo", GREEN)]
+    fig, ax = plt.subplots(figsize=(11, 5.4))
+    x = np.arange(len(insts))
+    w = 0.2
+    for k, (key, lbl, c) in enumerate(keys):
+        vals = [ve[t][key]["mean_fwd_pct"] * 100 for t in insts]
+        ax.bar(x + (k - 1.5) * w, vals, width=w, label=lbl, color=c)
+    ax.set_xticks(x)
+    ax.set_xticklabels([t.replace(".SA", "") for t in insts])
+    ax.set_ylabel("Retorno futuro 5 dias (%)")
+    ax.axhline(0, color="black", lw=0.8)
+    ax.set_title("Leituras de volume 'cru' (§6): absorção no fundo é bullish (sobretudo no Brasil);\n"
+                 "'movimento saudável' NÃO supera o baseline em índices")
+    ax.legend(fontsize=8, ncol=2)
+    return _save(fig, figdir, "14_volume_events")
+
+
+def fig_signal_candle(results: dict, figdir: Path) -> str:
+    """Efeito do signal candle (§7): PF da Edge-to-Edge vs exigência de volume."""
+    sc = results["complementary"]["signal_candle"]
+    fig, ax = plt.subplots(figsize=(9.5, 5.0))
+    for tk, col in [("SPY", NAVY), ("QQQ", BLUE)]:
+        t = sc[tk]
+        ax.plot(t["volume_mult"], t["profit_factor"], "-o", color=col, label=f"{tk} (PF)")
+        for _, r in t.iterrows():
+            ax.annotate(f"n={int(r['n_trades'])}", (r["volume_mult"], r["profit_factor"]),
+                        fontsize=7, textcoords="offset points", xytext=(0, 6), ha="center")
+    ax.axhline(1.0, color=RED, ls="--", lw=1)
+    ax.set_xlabel("Exigência de volume no dia-sinal (× média) — 0 = sem confirmação")
+    ax.set_ylabel("Profit Factor")
+    ax.set_title("Signal candle (§7): exigir um spike de volume melhora o QQQ (PF 1,1→1,9)\n"
+                 "mas overfiltra acima de ~1,5×")
+    ax.legend()
+    return _save(fig, figdir, "15_signal_candle")
+
+
+def fig_resolution(results: dict, figdir: Path) -> str:
+    """Robustez à resolução do histograma (§4.3 — 'use 400 rows')."""
+    r = results["complementary"]["resolution"]
+    fig, ax = plt.subplots(figsize=(9.0, 4.8))
+    ax.bar(range(len(r)), r["profit_factor"], color=TEAL, alpha=0.85,
+           tick_label=[str(int(n)) for n in r["n_bins"]])
+    ax.axhline(1.0, color=RED, ls="--", lw=1)
+    for i, v in enumerate(r["profit_factor"]):
+        ax.text(i, v + 0.02, f"{v:.2f}", ha="center", fontsize=9)
+    ax.set_xlabel("Nº de faixas de preço (rows) do histograma")
+    ax.set_ylabel("Profit Factor (E2E, SPY)")
+    ax.set_ylim(0, max(r["profit_factor"]) * 1.2)
+    ax.set_title("Resolução do perfil (§4.3): o edge é estável de 40 a 400 rows\n"
+                 "— mais resolução ajuda pouco no swing diário")
+    return _save(fig, figdir, "16_resolution")
+
+
 def generate_all_figures(results: dict, figdir: Path | str) -> dict[str, str]:
     figdir = Path(figdir)
     figdir.mkdir(parents=True, exist_ok=True)
@@ -400,6 +458,7 @@ def generate_all_figures(results: dict, figdir: Path | str) -> dict[str, str]:
         fig_volume_profile, fig_oos_heatmap, fig_oos_equity, fig_walkforward_degradation,
         fig_param_heatmap, fig_daytype, fig_divergence, fig_rule80, fig_portfolio,
         fig_trade_distribution, fig_sizing_tradeoff, fig_cost_sensitivity, fig_strategy_vs_buyhold,
+        fig_volume_events, fig_signal_candle, fig_resolution,
     ]
     paths = {}
     for b in builders:
