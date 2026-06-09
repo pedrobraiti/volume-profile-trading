@@ -113,9 +113,11 @@ def combine_portfolio_returns(
     """
     if not sleeves:
         return pd.Series(dtype=float)
-    df = pd.DataFrame(sleeves).fillna(0.0)
+    df = pd.DataFrame(sleeves)  # NaN onde o sleeve ainda não existe (histórico mais curto)
     if weights is None:
-        w = pd.Series(1.0 / df.shape[1], index=df.columns)
-    else:
-        w = pd.Series(weights).reindex(df.columns).fillna(0.0)
-    return (df * w).sum(axis=1)
+        # Peso igual apenas entre os sleeves DISPONÍVEIS em cada dia (renormaliza ao surgirem).
+        available = df.notna()
+        day_weights = available.div(available.sum(axis=1).replace(0, np.nan), axis=0)
+        return (df.fillna(0.0) * day_weights).sum(axis=1).fillna(0.0)
+    w = pd.Series(weights).reindex(df.columns).fillna(0.0)
+    return (df.fillna(0.0) * w).sum(axis=1)
