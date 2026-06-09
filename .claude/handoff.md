@@ -4,29 +4,27 @@
 > de forma relativamente detalhada. É o PRIMEIRO arquivo que a próxima sessão lê.
 > Mantenha-o vivo e específico — detalhado o bastante para retomar sem reconstruir o raciocínio.
 
-**Última atualização:** 2026-06-09 — setup inicial
+**Última atualização:** 2026-06-09 — setup concluído, escopo travado, repo no GitHub
 
 ## Onde parei
-Acabei de rodar o `/setup`: criei a estrutura `.claude/`, `CLAUDE.md`, `README.md`, git init e
-commit inicial. Li e entendi por completo o `volume-profile-estrategia.md` (estratégia Volume
-Profile / Market Profile). O usuário pediu: backtest de vários anos (~20) com dados gratuitos
-(Yahoo Finance), análise dos melhores parâmetros (conservadores e agressivos) e um **relatório
-PDF profissional** ao final. Ele autorizou seguir de forma autônoma quando eu julgar pronto,
-mas pediu que **por ora** eu apenas prepare o setup e faça as perguntas necessárias.
+`/setup` concluído: estrutura `.claude/`, `CLAUDE.md`, `README.md`, git init, commit inicial e
+**repo privado criado/pushado** em https://github.com/pedrobraiti/volume-profile-trading.
+Li e entendi por completo o `volume-profile-estrategia.md`. O usuário respondeu às perguntas de
+escopo: **(1) abordagem Híbrida**, **(2) Mix US + Brasil**, **(3) criar repo privado** (feito).
 
 ## Contexto mental
-A grande questão técnica: a estratégia é **intraday por natureza** (TPO de 30 min, IB, aceitação
-em 2 períodos, Regra dos 80%). Yahoo NÃO tem 20 anos de intraday (só ~60 dias de 30 min). Então
-um backtest fiel de 20 anos é impossível com dados gratuitos. A saída é decidir entre:
-(A) Composite Volume Profile diário (20+ anos, swing), (B) intraday fiel mas amostra curta,
-(C) híbrido. Recomendo o híbrido com ênfase em (A) para a robustez de 20 anos. Também preciso
-definir instrumento (recomendo SPY/QQQ por terem o volume diário mais limpo e longo).
-Fiz as perguntas de escopo ao usuário via AskUserQuestion.
+Escopo travado (ver `decisions.md`): backtest DIÁRIO de ~20+ anos com Composite Volume Profile em
+janela móvel (robustez) + validação INTRADAY recente (~60d, 30min) para Regra dos 80% e day-types.
+Instrumentos: SPY, QQQ (US) + PETR4, VALE3, BOVA11 (B3). Métrica-rainha: **expectância após custos**.
+Premissas de custo/capital definidas como defaults ajustáveis (ver `decisions.md`). Apresentei o
+plano ao usuário com as premissas; ele tinha dito "por ora apenas prepare o /setup", então estou
+aguardando o "go" final (ou ele já autorizou seguir autônomo — confirmar na próxima mensagem).
 
 ## Próximo passo concreto
-Aguardar as respostas do usuário às 3 perguntas de escopo (abordagem de dados/timeframe,
-instrumentos, regras a priorizar). Assim que responder, atualizar `decisions.md` com a escolha,
-montar `.venv` + `requirements.txt` e começar o módulo de ingestão de dados.
+Ao receber o "go": criar `.venv` (Python 3.12 se houver atrito com 3.14), `requirements.txt`
+(yfinance, pandas, numpy, matplotlib, reportlab, pyarrow), e implementar o módulo de ingestão de
+dados (`data/`) com cache Parquet — baixar diário longo de SPY/QQQ/PETR4/VALE3/BOVA11 e 30min
+recente. Validar qualidade/volume de cada série antes de seguir.
 
 ## Em aberto / armadilhas
 - Yahoo: volume confiável para ETFs/ações US (SPY, QQQ); volume de índices (^BVSP, ^GSPC) e de
