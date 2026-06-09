@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Ambiente / segredos
+.env
+
+# Dados em cache (baixados do provedor; não versionar)
+data/cache/
+*.parquet
+
+# Saídas geradas
+output/
+*.tmp
+
+# SO / editores
+.DS_Store
+Thumbs.db
+
+# Hook marker
+.claude/.last-stop-signature
