@@ -5,6 +5,7 @@ from vptrading.strategies.daily import (
     edge_to_edge_signals,
     va_breakout_signals,
     va_reversion_signals,
+    volume_exhaustion_signals,
 )
 from vptrading.strategies.rule80 import Rule80Params, backtest_rule80
 
@@ -13,6 +14,7 @@ __all__ = [
     "va_reversion_signals",
     "edge_to_edge_signals",
     "va_breakout_signals",
+    "volume_exhaustion_signals",
     "Rule80Params",
     "backtest_rule80",
 ]

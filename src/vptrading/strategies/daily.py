@@ -193,3 +193,45 @@ def va_breakout_signals(
             target[i] = c[i] - p.target_atr_mult * a[i]
 
     return pd.DataFrame({"signal": signal, "stop": stop, "target": target}, index=df.index)
+
+
+def volume_exhaustion_signals(
+    df: pd.DataFrame, p: DailyParams, *, cache_key: str | None = None
+) -> pd.DataFrame:
+    """Sinais de exaustão de volume / "sem oferta" (§6) — não depende do Volume Profile.
+
+    Compra quando o preço faz uma nova MÍNIMA de ``window`` dias com volume ABAIXO da média
+    (vendedores se esgotando = possível fundo). Vende a descoberto no espelho: nova MÁXIMA com
+    volume baixo (compradores sem força). Alvo e stop por múltiplos de ATR. ``volume_mult`` define
+    o teto de volume (fração da média); se 0, usa 1.0 (abaixo da média).
+    """
+    atr = _atr(df, p.atr_period)
+    close = df["Close"]
+    vol = df["Volume"]
+    vol_avg = vol.rolling(p.volume_avg, min_periods=p.volume_avg).mean()
+    thresh_mult = p.volume_mult if p.volume_mult > 0 else 1.0
+    low_vol = (vol <= thresh_mult * vol_avg).to_numpy()
+
+    roll_low = close.rolling(p.window, min_periods=p.window).min().to_numpy()
+    roll_high = close.rolling(p.window, min_periods=p.window).max().to_numpy()
+
+    n = len(df)
+    signal = np.zeros(n)
+    stop = np.full(n, np.nan)
+    target = np.full(n, np.nan)
+    c = close.to_numpy()
+    a = atr.to_numpy()
+
+    for i in range(n):
+        if np.isnan(roll_low[i]) or np.isnan(a[i]) or not low_vol[i]:
+            continue
+        if p.allow_long and c[i] <= roll_low[i]:
+            signal[i] = 1
+            stop[i] = c[i] - p.stop_atr_mult * a[i]
+            target[i] = c[i] + p.target_atr_mult * a[i]
+        elif p.allow_short and c[i] >= roll_high[i]:
+            signal[i] = -1
+            stop[i] = c[i] + p.stop_atr_mult * a[i]
+            target[i] = c[i] - p.target_atr_mult * a[i]
+
+    return pd.DataFrame({"signal": signal, "stop": stop, "target": target}, index=df.index)
