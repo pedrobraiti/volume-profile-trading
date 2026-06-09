@@ -16,8 +16,10 @@ após custos** ao longo de muitos trades e anos, comparar parâmetros conservado
 e entregar um **relatório PDF profissional** com gráficos, tabelas e comparações.
 
 ## Fase atual
-Setup inicial + definição de escopo (fonte de dados, instrumentos, regras a testar).
-Aguardando respostas do usuário às perguntas de escopo antes de iniciar a implementação autônoma.
+**Primeira entrega COMPLETA** (2026-06-09): pipeline de backtesting funcional + relatório PDF de
+16 páginas (`output/relatorio_volume_profile.pdf`). 4 estratégias diárias + Regra dos 80% intraday,
+engine com custos, walk-forward OOS, estudos das afirmações do documento, portfólio e recomendações
+conservador/agressivo. 9 testes passando. Pronto para evoluções futuras (ver `todo.md`).
 
 ## Restrições e bloqueios de longo prazo
 - **Volume Profile é, na origem, uma estratégia INTRADAY** (blocos de 30 min, Initial Balance,
