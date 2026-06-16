@@ -1,12 +1,12 @@
-"""vptrading — backtesting da estratégia Volume Profile / Market Profile.
+"""vptrading — backtesting of the Volume Profile / Market Profile strategy.
 
-Pacote modular organizado por domínio:
-- data:         ingestão e cache de dados de mercado (OHLCV).
-- core:         matemática do Volume Profile (POC, Value Area, HVN/LVN) e day-types.
-- strategies:   regras de trade objetivas derivadas da estratégia.
-- backtest:     engine de simulação, modelos de custo e métricas de performance.
-- optimization: grid search e validação walk-forward (in-sample / out-of-sample).
-- reporting:    gráficos e geração do relatório PDF.
+Modular package organized by domain:
+- data:         market data ingestion and caching (OHLCV).
+- core:         Volume Profile math (POC, Value Area, HVN/LVN) and day-types.
+- strategies:   objective trade rules derived from the strategy.
+- backtest:     simulation engine, cost models, and performance metrics.
+- optimization: grid search and walk-forward validation (in-sample / out-of-sample).
+- reporting:    charts and PDF report generation.
 """
 
 __version__ = "0.1.0"

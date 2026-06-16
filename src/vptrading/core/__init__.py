@@ -1,4 +1,4 @@
-"""Matemática do Volume Profile e classificação de day-types."""
+"""Volume Profile math and day-type classification."""
 
 from vptrading.core.profile import ProfileResult, build_volume_profile
 from vptrading.core.composite import rolling_composite_levels

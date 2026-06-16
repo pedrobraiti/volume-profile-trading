@@ -1,4 +1,4 @@
-"""Grid search e validação walk-forward (in-sample / out-of-sample)."""
+"""Grid search and walk-forward validation (in-sample / out-of-sample)."""
 
 from vptrading.optimization.search import (
     WalkForwardResult,

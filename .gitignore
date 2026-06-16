@@ -7,18 +7,21 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 
-# Ambiente / segredos
+# Environment / secrets
 .env
 
-# Dados em cache (baixados do provedor; não versionar)
+# Cached data (downloaded from the provider; not versioned)
 data/cache/
 *.parquet
 
-# Saídas geradas
-output/
+# Generated outputs (regenerable). The figures and the final PDF report are
+# committed so they render on GitHub without running the pipeline.
+output/*
+!output/figures/
+!output/volume_profile_study.pdf
 *.tmp
 
-# SO / editores
+# OS / editors
 .DS_Store
 Thumbs.db
 

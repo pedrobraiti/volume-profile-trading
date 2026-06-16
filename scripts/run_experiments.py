@@ -1,19 +1,19 @@
-"""Orquestra todos os experimentos e salva os resultados para o relatório.
+"""Orchestrates all experiments and saves the results for the report.
 
-Produz:
-- output/results.pkl  -> dicionário completo (métricas, curvas, folds, estudos, portfólio).
-- output/data/*.csv   -> tabelas legíveis (cross-section, grids, folds, estudos).
+Produces:
+- output/results.pkl  -> complete dictionary (metrics, curves, folds, studies, portfolio).
+- output/data/*.csv   -> readable tables (cross-section, grids, folds, studies).
 
-Cobre, end-to-end:
-1. Benchmark buy & hold por instrumento.
-2. Matriz cross-section (estratégia × instrumento × direção) com config default.
-3. Walk-forward OOS (in-sample -> out-of-sample) para cada estratégia × instrumento.
-4. Perfis conservador vs agressivo da estratégia-carro-chefe.
-5. Portfólio diversificado de sleeves validados OOS.
-6. Regra dos 80% intraday (P&L + diagnóstico de traverse rate).
-7. Estudos: retorno por day-type, divergência de volume.
-8. Sensibilidade a custos.
-9. Perfil de volume de exemplo (para o gráfico educativo).
+Covers, end-to-end:
+1. Buy & hold benchmark per instrument.
+2. Cross-section matrix (strategy × instrument × direction) with the default config.
+3. Walk-forward OOS (in-sample -> out-of-sample) for each strategy × instrument.
+4. Conservative vs aggressive profiles of the flagship strategy.
+5. Diversified portfolio of OOS-validated sleeves.
+6. Intraday 80% rule (P&L + traverse-rate diagnostics).
+7. Studies: forward return by day-type, volume divergence.
+8. Cost sensitivity.
+9. Sample volume profile (for the educational chart).
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ DATA_OUT = OUT / "data"
 OUT.mkdir(exist_ok=True)
 DATA_OUT.mkdir(exist_ok=True)
 
-# Estratégias diárias: (signal_fn, label, descrição curta, grade de parâmetros, base).
+# Daily strategies: (signal_fn, label, short description, parameter grid, base).
 VP_GRID = {
     "window": [40, 60, 90, 120],
     "value_area_pct": [0.70, 0.80],
@@ -84,10 +84,10 @@ EXH_GRID = {
 }
 
 STRATEGIES = {
-    "REV": (va_reversion_signals, "Reversão ao POC (fade de extremos)", VP_GRID),
-    "E2E": (edge_to_edge_signals, "Edge-to-Edge (borda a borda da VA)", VP_GRID),
-    "BRK": (va_breakout_signals, "Breakout da Value Area (atividade iniciante)", BRK_GRID),
-    "EXH": (volume_exhaustion_signals, "Exaustão de volume (no-supply / sem oferta)", EXH_GRID),
+    "REV": (va_reversion_signals, "POC reversion (fading extremes)", VP_GRID),
+    "E2E": (edge_to_edge_signals, "Edge-to-Edge (edge to edge of the VA)", VP_GRID),
+    "BRK": (va_breakout_signals, "Value Area breakout (initiating activity)", BRK_GRID),
+    "EXH": (volume_exhaustion_signals, "Volume exhaustion (no-supply)", EXH_GRID),
 }
 
 
@@ -110,7 +110,7 @@ def buyhold(df: pd.DataFrame) -> dict:
 
 
 def cross_section(results: dict) -> pd.DataFrame:
-    """Config default por estratégia, em todos os instrumentos, long+short e long-only."""
+    """Default config per strategy, across all instruments, long+short and long-only."""
     rows = []
     for tk, inst in INSTRUMENTS.items():
         df = load_daily(tk)
@@ -137,7 +137,7 @@ def cross_section(results: dict) -> pd.DataFrame:
 
 
 def run_walkforward(results: dict) -> dict:
-    """Walk-forward OOS long-only para cada estratégia × instrumento."""
+    """Walk-forward OOS long-only for each strategy × instrument."""
     wf_out: dict = {}
     for sname, (fn, label, grid) in STRATEGIES.items():
         wf_out[sname] = {}
@@ -163,31 +163,31 @@ def run_walkforward(results: dict) -> dict:
 
 
 def flagship_deepdive(results: dict) -> dict:
-    """Deep-dive do carro-chefe: grade completa em SPY + sensibilidade de parâmetros + perfis."""
+    """Flagship deep-dive: full grid on SPY + parameter sensitivity + profiles."""
     df = load_daily("SPY")
     cm = COST_MODELS["US"]
     deep = {}
 
-    # Grade completa EXH long-only em SPY (para heatmap de sensibilidade).
+    # Full EXH long-only grid on SPY (for the sensitivity heatmap).
     base = DailyParams(allow_long=True, allow_short=False, trend_filter=False)
     plist = expand_daily_grid(base, EXH_GRID)
     table, _ = full_sample_grid(df, volume_exhaustion_signals, plist, cost_model=cm, cache_key="SPY")
     table.to_csv(DATA_OUT / "grid_EXH_SPY.csv", index=False)
     deep["exh_spy_grid"] = table
 
-    # E2E long-only grade em SPY também (segundo carro-chefe).
+    # E2E long-only grid on SPY as well (secondary flagship).
     base2 = DailyParams(allow_long=True, allow_short=False, trend_filter=True)
     plist2 = expand_daily_grid(base2, VP_GRID)
     table2, _ = full_sample_grid(df, edge_to_edge_signals, plist2, cost_model=cm, cache_key="SPY")
     table2.to_csv(DATA_OUT / "grid_E2E_SPY.csv", index=False)
     deep["e2e_spy_grid"] = table2
 
-    # Config validada (boa) usada como base para isolar o efeito de SIZING/risco.
+    # Validated (good) config used as the base to isolate the SIZING/risk effect.
     good = DailyParams(window=20, stop_atr_mult=2.0, target_atr_mult=3.0, max_holding_days=10,
                        volume_mult=1.0, allow_long=True, allow_short=False, trend_filter=False)
 
-    # Eixo conservador -> agressivo = mesmo edge, risco por trade crescente (max_leverage alto para
-    # não ser o cap a limitar; assim o risco por trade é que controla a fração investida).
+    # Conservative -> aggressive axis = same edge, increasing risk per trade (high max_leverage so
+    # the cap is not the limiting factor; this way risk per trade controls the invested fraction).
     sizing = {}
     for label, risk in [("0,5% risco", 0.005), ("1% risco", 0.01),
                         ("2% risco", 0.02), ("3% risco", 0.03)]:
@@ -198,14 +198,14 @@ def flagship_deepdive(results: dict) -> dict:
     deep["sizing_sweep"] = sizing
     deep["good_config"] = good.__dict__.copy()
 
-    # Distribuição de retornos por trade da config-base (para histograma).
+    # Per-trade return distribution of the base config (for the histogram).
     base_res = run_daily_strategy(df, volume_exhaustion_signals, good, cost_model=cm,
                                   cache_key="SPY")
     deep["flagship_trade_returns"] = [t.return_pct for t in base_res.trades]
     deep["flagship_curve"] = base_res.metrics.equity_curve
     deep["flagship_metrics"] = base_res.metrics.as_row()
 
-    # Perfis de PARÂMETRO conservador vs agressivo (ambos long-only, risco 1%).
+    # Conservative vs aggressive PARAMETER profiles (both long-only, 1% risk).
     param_profiles = {
         "Conservador (stop largo, VA 0,80)": DailyParams(
             window=20, stop_atr_mult=3.0, target_atr_mult=3.0, max_holding_days=10,
@@ -224,7 +224,7 @@ def flagship_deepdive(results: dict) -> dict:
 
 
 def build_portfolio(wf_out: dict) -> dict:
-    """Portfólio diversificado: para cada instrumento, usa a melhor estratégia long OOS."""
+    """Diversified portfolio: for each instrument, use the best long OOS strategy."""
     best_sleeves = {}
     for tk in INSTRUMENTS:
         best = None
@@ -256,7 +256,7 @@ def build_portfolio(wf_out: dict) -> dict:
             "daily_returns": ret,
         }
 
-    # Sweep de alavancagem sobre o portfólio só-positivos (eixo conservador -> agressivo).
+    # Leverage sweep over the positives-only portfolio (conservative -> aggressive axis).
     if "apenas_positivos_OOS" in out:
         base_ret = out["apenas_positivos_OOS"]["daily_returns"]
         lev_sweep = {}
@@ -298,7 +298,7 @@ def run_studies(results: dict) -> dict:
 
 
 def cost_sensitivity() -> pd.DataFrame:
-    """Como a expectância da EXH long em SPY varia com o nível de custo."""
+    """How the expectancy of EXH long on SPY varies with the cost level."""
     df = load_daily("SPY")
     p = DailyParams(window=20, stop_atr_mult=2.0, target_atr_mult=3.0, max_holding_days=10,
                     allow_long=True, allow_short=False, trend_filter=False)
@@ -313,13 +313,13 @@ def cost_sensitivity() -> pd.DataFrame:
 
 
 def complementary_studies() -> dict:
-    """Estudos complementares: leituras de volume §6, signal candle §7 e resolução §4.3."""
+    """Complementary studies: volume readings §6, signal candle §7 and resolution §4.3."""
     out: dict = {}
 
-    # §6 — leituras de volume "cru" (movimento saudável, absorção) por instrumento.
+    # §6 — "raw" volume readings (healthy movement, absorption) per instrument.
     out["volume_events"] = {tk: volume_event_study(load_daily(tk)) for tk in INSTRUMENTS}
 
-    # §7 — efeito do "signal candle" (confirmação por volume) na Edge-to-Edge.
+    # §7 — effect of the "signal candle" (volume confirmation) on Edge-to-Edge.
     conf = {}
     for tk in ["SPY", "QQQ"]:
         df = load_daily(tk)
@@ -334,7 +334,7 @@ def complementary_studies() -> dict:
         conf[tk] = pd.DataFrame(rows)
     out["signal_candle"] = conf
 
-    # §4.3 — robustez à resolução do histograma (nº de "rows").
+    # §4.3 — robustness to histogram resolution (number of "rows").
     df = load_daily("SPY")
     cm = COST_MODELS["US"]
     rows = []
@@ -350,7 +350,7 @@ def complementary_studies() -> dict:
 
 
 def sample_profile() -> dict:
-    """Perfil de volume composite recente do SPY (para o gráfico educativo)."""
+    """Recent composite volume profile of SPY (for the educational chart)."""
     df = load_daily("SPY").iloc[-120:]
     prof = build_volume_profile(df["High"].to_numpy(), df["Low"].to_numpy(),
                                 df["Volume"].to_numpy(), n_bins=80, value_area_pct=0.70)
@@ -375,7 +375,7 @@ def main():
         (tk, {"name": i.name, "market": i.market, "currency": i.currency})
         for tk, i in INSTRUMENTS.items())}}
 
-    print("[1/9] Buy & hold + dados por instrumento...")
+    print("[1/9] Buy & hold + data per instrument...")
     results["instruments"] = {}
     for tk, inst in INSTRUMENTS.items():
         df = load_daily(tk)
@@ -386,35 +386,35 @@ def main():
             "buyhold": bh, "price": df["Close"],
         }
 
-    print("[2/9] Matriz cross-section (estratégia × instrumento × direção)...")
+    print("[2/9] Cross-section matrix (strategy × instrument × direction)...")
     cs = cross_section(results)
     cs.to_csv(DATA_OUT / "cross_section.csv", index=False)
     results["cross_section"] = cs
 
-    print("[3/9] Walk-forward OOS (pode levar alguns minutos)...")
+    print("[3/9] Walk-forward OOS (may take a few minutes)...")
     results["walkforward"] = run_walkforward(results)
 
-    print("[4/9] Deep-dive do carro-chefe + perfis conservador/agressivo...")
+    print("[4/9] Flagship deep-dive + conservative/aggressive profiles...")
     results["flagship"] = flagship_deepdive(results)
 
-    print("[5/9] Portfólio diversificado...")
+    print("[5/9] Diversified portfolio...")
     results["portfolio"] = build_portfolio(results["walkforward"])
 
-    print("[6/9] Regra dos 80% (intraday 30m)...")
+    print("[6/9] 80% rule (intraday 30m)...")
     results["rule80"] = run_rule80(results)
 
-    print("[7/9] Estudos (day-type, divergência)...")
+    print("[7/9] Studies (day-type, divergence)...")
     results["studies"] = run_studies(results)
 
-    print("[8/9] Sensibilidade a custos...")
+    print("[8/9] Cost sensitivity...")
     cstab = cost_sensitivity()
     cstab.to_csv(DATA_OUT / "cost_sensitivity.csv", index=False)
     results["cost_sensitivity"] = cstab
 
-    print("[9/10] Estudos complementares (§4.3, §6, §7)...")
+    print("[9/10] Complementary studies (§4.3, §6, §7)...")
     results["complementary"] = complementary_studies()
 
-    print("[10/10] Perfil de volume de exemplo...")
+    print("[10/10] Sample volume profile...")
     results["sample_profile"] = sample_profile()
 
     with open(OUT / "results.pkl", "wb") as f:

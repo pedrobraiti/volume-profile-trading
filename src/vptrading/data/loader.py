@@ -1,8 +1,8 @@
-"""Download e cache local de dados OHLCV via Yahoo Finance.
+"""Download and local cache of OHLCV data via Yahoo Finance.
 
-Yahoo entrega histórico diário longo (décadas) mas intraday curto (~60 dias para 30 min).
-Esta camada baixa uma vez, salva em Parquet sob ``data/cache/`` e reusa em execuções futuras
-para não depender da rede nem do rate-limit do Yahoo a cada rodada.
+Yahoo provides long daily history (decades) but short intraday (~60 days for 30 min).
+This layer downloads once, saves to Parquet under ``data/cache/`` and reuses it on future
+runs so as not to depend on the network or Yahoo's rate limit on every run.
 """
 
 from __future__ import annotations
@@ -25,11 +25,11 @@ OHLCV_COLUMNS = ["Open", "High", "Low", "Close", "Volume"]
 
 @dataclass(frozen=True)
 class Instrument:
-    """Metadados de um instrumento negociável."""
+    """Metadata for a tradable instrument."""
 
     ticker: str
     name: str
-    market: str  # "US" ou "BR"
+    market: str  # "US" or "BR"
     currency: str
 
 
@@ -43,7 +43,7 @@ INSTRUMENTS: dict[str, Instrument] = {
 
 
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """yfinance retorna colunas MultiIndex (Price, Ticker) ao baixar 1 ticker. Achata."""
+    """yfinance returns MultiIndex columns (Price, Ticker) when downloading 1 ticker. Flatten them."""
     if isinstance(df.columns, pd.MultiIndex):
         df = df.copy()
         df.columns = df.columns.get_level_values(0)
@@ -51,13 +51,13 @@ def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _normalize(df: pd.DataFrame) -> pd.DataFrame:
-    """Garante colunas OHLCV, ordena por data e remove linhas inválidas."""
+    """Ensure OHLCV columns, sort by date and drop invalid rows."""
     df = _flatten_columns(df)
     keep = [c for c in OHLCV_COLUMNS if c in df.columns]
     df = df[keep].copy()
     df = df[~df.index.duplicated(keep="last")].sort_index()
     df = df.dropna(subset=["Open", "High", "Low", "Close"])
-    df = df[df["Volume"] > 0]  # descarta pregões sem negócio (feriados/halts)
+    df = df[df["Volume"] > 0]  # discard sessions with no trading (holidays/halts)
     return df
 
 
@@ -75,16 +75,16 @@ def _download(ticker: str, *, period: str, interval: str, retries: int = 3) -> p
             )
             if df is not None and len(df) > 0:
                 return _normalize(df)
-        except Exception as exc:  # noqa: BLE001 — rede instável; tentamos de novo
+        except Exception as exc:  # noqa: BLE001 — unstable network; we retry
             last_err = exc
         time.sleep(1.5 * (attempt + 1))
     if last_err is not None:
-        raise RuntimeError(f"Falha ao baixar {ticker} ({interval}): {last_err}")
-    raise RuntimeError(f"Download vazio para {ticker} ({interval}).")
+        raise RuntimeError(f"Failed to download {ticker} ({interval}): {last_err}")
+    raise RuntimeError(f"Empty download for {ticker} ({interval}).")
 
 
 def load_daily(ticker: str, *, refresh: bool = False) -> pd.DataFrame:
-    """Carrega o histórico diário máximo do ticker, com cache em Parquet."""
+    """Load the ticker's maximum daily history, with Parquet caching."""
     cache = CACHE_DIR / f"{ticker.replace('.', '_')}_1d.parquet"
     if cache.exists() and not refresh:
         return pd.read_parquet(cache)
@@ -94,9 +94,9 @@ def load_daily(ticker: str, *, refresh: bool = False) -> pd.DataFrame:
 
 
 def load_intraday(ticker: str, *, interval: str = "30m", refresh: bool = False) -> pd.DataFrame:
-    """Carrega o histórico intraday disponível (curto) do ticker, com cache.
+    """Load the ticker's available (short) intraday history, with caching.
 
-    Yahoo limita: ~60 dias para 30m; ~730 dias para 1h.
+    Yahoo limits: ~60 days for 30m; ~730 days for 1h.
     """
     period = "60d" if interval in {"30m", "15m", "5m"} else "730d"
     cache = CACHE_DIR / f"{ticker.replace('.', '_')}_{interval}.parquet"

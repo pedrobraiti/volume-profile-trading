@@ -1,4 +1,4 @@
-"""Ingestão e cache de dados de mercado."""
+"""Market data ingestion and caching."""
 
 from vptrading.data.loader import (
     INSTRUMENTS,

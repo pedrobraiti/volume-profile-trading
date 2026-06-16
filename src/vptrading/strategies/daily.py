@@ -1,16 +1,17 @@
-"""Estratégias diárias (swing) sobre o Composite Volume Profile.
+"""Daily (swing) strategies over the Composite Volume Profile.
 
-Duas táticas objetivas do documento de referência (§5.1 e §7):
+Two objective tactics from the reference document (§5.1 and §7):
 
-1. **VA Reversion (fade de extremos -> POC):** quando o preço fecha ACIMA da VAH ("caro demais")
-   espera-se reversão à média -> vende com alvo no POC; abaixo da VAL ("barato demais") -> compra
-   com alvo no POC. É a rotação clássica do dia em "D".
+1. **VA Reversion (fade extremes -> POC):** when the price closes ABOVE the VAH ("too expensive"),
+   mean reversion is expected -> sell with target at the POC; below the VAL ("too cheap") -> buy
+   with target at the POC. This is the classic intraday rotation on a "D" day.
 
-2. **Edge-to-Edge:** entra numa borda da Value Area e mira a borda OPOSTA, atravessando o interior
-   do perfil. Alvo maior (VAH<->VAL), payoff teórico melhor, win rate menor.
+2. **Edge-to-Edge:** enters at one edge of the Value Area and targets the OPPOSITE edge, crossing
+   the interior of the profile. Larger target (VAH<->VAL), better theoretical payoff, lower win
+   rate.
 
-Ambas aceitam um filtro de tendência (SMA longa): evita *fadear* contra um Trend Day — o "assassino"
-da reversão. Stops são baseados em ATR para se adaptar à volatilidade do ativo.
+Both accept a trend filter (long SMA): it avoids fading against a Trend Day — the "killer" of
+reversion. Stops are ATR-based to adapt to the asset's volatility.
 """
 
 from __future__ import annotations
@@ -25,21 +26,21 @@ from vptrading.core.composite import rolling_composite_levels
 
 @dataclass(frozen=True)
 class DailyParams:
-    """Parâmetros das estratégias diárias."""
+    """Parameters of the daily strategies."""
 
-    window: int = 60               # dias no composite profile
-    value_area_pct: float = 0.70   # fração que define a Value Area
-    n_bins: int = 80               # resolução do histograma
-    stop_atr_mult: float = 1.5     # stop = entrada ± mult × ATR
-    target_atr_mult: float = 3.0   # alvo (usado no breakout) = entrada ± mult × ATR
+    window: int = 60               # days in the composite profile
+    value_area_pct: float = 0.70   # fraction that defines the Value Area
+    n_bins: int = 80               # histogram resolution
+    stop_atr_mult: float = 1.5     # stop = entry ± mult × ATR
+    target_atr_mult: float = 3.0   # target (used in breakout) = entry ± mult × ATR
     atr_period: int = 14
-    trend_filter: bool = True      # se True, alinha a direção à SMA longa
+    trend_filter: bool = True      # if True, aligns the direction with the long SMA
     trend_sma: int = 200
     allow_long: bool = True
     allow_short: bool = True
-    volume_mult: float = 0.0       # >0: exige volume do dia-sinal > mult × média (signal candle)
+    volume_mult: float = 0.0       # >0: requires signal-day volume > mult × average (signal candle)
     volume_avg: int = 20
-    max_holding_days: int = 15     # tempo máximo na posição antes de sair "por tempo"
+    max_holding_days: int = 15     # max time in the position before a time-based exit
 
 
 def _atr(df: pd.DataFrame, period: int) -> pd.Series:
@@ -62,10 +63,10 @@ def _levels(df: pd.DataFrame, p: DailyParams, cache_key: str | None) -> pd.DataF
 
 
 def _trend_ok(close: pd.Series, p: DailyParams) -> tuple[pd.Series, pd.Series]:
-    """Retorna (long_ok, short_ok) por dia, segundo o filtro de tendência.
+    """Return (long_ok, short_ok) per day, according to the trend filter.
 
-    Sem filtro: ambos sempre liberados. Com filtro: só compra acima da SMA longa e só vende abaixo
-    (não fadeia contra a tendência dominante).
+    Without filter: both always enabled. With filter: only buy above the long SMA and only sell
+    below it (does not fade against the dominant trend).
     """
     if not p.trend_filter:
         true = pd.Series(True, index=close.index)
@@ -77,7 +78,7 @@ def _trend_ok(close: pd.Series, p: DailyParams) -> tuple[pd.Series, pd.Series]:
 
 
 def _volume_ok(df: pd.DataFrame, p: DailyParams) -> np.ndarray:
-    """Máscara de confirmação por volume (signal candle): volume do dia > mult × média recente."""
+    """Volume confirmation mask (signal candle): day's volume > mult × recent average."""
     if p.volume_mult <= 0:
         return np.ones(len(df), dtype=bool)
     vol = df["Volume"]
@@ -88,7 +89,7 @@ def _volume_ok(df: pd.DataFrame, p: DailyParams) -> np.ndarray:
 def va_reversion_signals(
     df: pd.DataFrame, p: DailyParams, *, cache_key: str | None = None
 ) -> pd.DataFrame:
-    """Sinais da tática de reversão ao POC (fade de extremos)."""
+    """Signals of the POC reversion tactic (fade the extremes)."""
     lv = _levels(df, p, cache_key)
     atr = _atr(df, p.atr_period)
     close = df["Close"]
@@ -123,7 +124,7 @@ def va_reversion_signals(
 def edge_to_edge_signals(
     df: pd.DataFrame, p: DailyParams, *, cache_key: str | None = None
 ) -> pd.DataFrame:
-    """Sinais da tática edge-to-edge (entra numa borda, mira a borda oposta da VA)."""
+    """Signals of the edge-to-edge tactic (enter at one edge, target the opposite VA edge)."""
     lv = _levels(df, p, cache_key)
     atr = _atr(df, p.atr_period)
     close = df["Close"]
@@ -158,11 +159,12 @@ def edge_to_edge_signals(
 def va_breakout_signals(
     df: pd.DataFrame, p: DailyParams, *, cache_key: str | None = None
 ) -> pd.DataFrame:
-    """Sinais de BREAKOUT / atividade iniciante (opera A FAVOR do rompimento da Value Area).
+    """BREAKOUT / initiative-activity signals (trades WITH the Value Area breakout).
 
-    Contraponto ao fade: quando o preço rompe a VAH com a tendência a favor, compra apostando na
-    continuação (aceitação fora do valor = início de tendência, §2/§5.4). Alvo por múltiplo de ATR,
-    stop no outro lado. Aqui o filtro de tendência alinha a direção do rompimento à SMA longa.
+    Counterpoint to the fade: when the price breaks the VAH with the trend in favor, it buys
+    betting on continuation (acceptance outside value = start of trend, §2/§5.4). Target by an ATR
+    multiple, stop on the other side. Here the trend filter aligns the breakout direction with the
+    long SMA.
     """
     lv = _levels(df, p, cache_key)
     atr = _atr(df, p.atr_period)
@@ -198,12 +200,12 @@ def va_breakout_signals(
 def volume_exhaustion_signals(
     df: pd.DataFrame, p: DailyParams, *, cache_key: str | None = None
 ) -> pd.DataFrame:
-    """Sinais de exaustão de volume / "sem oferta" (§6) — não depende do Volume Profile.
+    """Volume exhaustion / "no-supply" signals (§6) — does not depend on the Volume Profile.
 
-    Compra quando o preço faz uma nova MÍNIMA de ``window`` dias com volume ABAIXO da média
-    (vendedores se esgotando = possível fundo). Vende a descoberto no espelho: nova MÁXIMA com
-    volume baixo (compradores sem força). Alvo e stop por múltiplos de ATR. ``volume_mult`` define
-    o teto de volume (fração da média); se 0, usa 1.0 (abaixo da média).
+    Buys when the price makes a new ``window``-day LOW with volume BELOW the average (sellers
+    drying up = possible bottom). Shorts on the mirror image: a new HIGH with low volume (buyers
+    out of strength). Target and stop by ATR multiples. ``volume_mult`` defines the volume ceiling
+    (fraction of the average); if 0, it uses 1.0 (below the average).
     """
     atr = _atr(df, p.atr_period)
     close = df["Close"]

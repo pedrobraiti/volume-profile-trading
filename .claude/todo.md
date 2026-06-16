@@ -31,3 +31,6 @@ SPY, QQQ (US) + PETR4, VALE3, BOVA11 (B3). Métrica-rainha: expectância após c
 - [x] Portfólio diversificado + eixo conservador/agressivo (sizing e alavancagem)
 - [x] 15 figuras profissionais (inspecionadas visualmente) + relatório PDF de 16 páginas
 - [x] 9 testes unitários passando; README e memória atualizados
+- [x] Tornar o repo PÚBLICO e profissional: projeto inteiro traduzido p/ inglês (código, scripts,
+      testes, doc de referência e PDF), README estilo paper2004 com figuras + tabelas, figuras/PDF
+      versionados, LICENSE MIT, metadados pyproject, description/topics/tag no GitHub

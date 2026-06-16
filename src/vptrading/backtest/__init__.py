@@ -1,4 +1,4 @@
-"""Engine de backtest, modelos de custo e métricas de performance."""
+"""Backtest engine, cost models and performance metrics."""
 
 from vptrading.backtest.costs import CostModel, COST_MODELS
 from vptrading.backtest.metrics import Trade, compute_metrics

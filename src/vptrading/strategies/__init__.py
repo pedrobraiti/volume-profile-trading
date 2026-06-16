@@ -1,4 +1,4 @@
-"""Regras de trade objetivas derivadas da estratégia Volume Profile."""
+"""Objective trade rules derived from the Volume Profile strategy."""
 
 from vptrading.strategies.daily import (
     DailyParams,

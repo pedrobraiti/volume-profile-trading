@@ -1,15 +1,16 @@
-"""Regra dos 80% — a tática intraday fiel do documento (§8).
+"""80% Rule — the faithful intraday tactic from the document (§8).
 
-Enunciado: se o preço **abre fora** da Value Area do dia anterior, depois **reentra** e é
-**aceito** (fecha dentro por 2 períodos consecutivos de 30 min), há ~80% de chance de atravessar
-toda a VA até o extremo oposto.
+Statement: if the price **opens outside** the previous day's Value Area, then **re-enters** and is
+**accepted** (closes inside for 2 consecutive 30-min periods), there is a ~80% chance it will cross
+the entire VA to the opposite extreme.
 
-- Abre ACIMA da VAH -> reentra e é aceito -> SHORT, alvo = VAL, stop acima da VAH.
-- Abre ABAIXO da VAL -> reentra e é aceito -> LONG, alvo = VAH, stop abaixo da VAL.
+- Opens ABOVE the VAH -> re-enters and is accepted -> SHORT, target = VAL, stop above the VAH.
+- Opens BELOW the VAL -> re-enters and is accepted -> LONG, target = VAH, stop below the VAL.
 
-Opera sobre barras de 30 min agrupadas por sessão. O VA do dia anterior vem do Volume Profile das
-barras de 30 min daquela sessão. Como o Yahoo só dá ~60 dias de 30 min, a amostra é pequena — o
-resultado é uma *validação* da regra no presente, não uma estatística de décadas (ver relatório).
+It operates on 30-min bars grouped by session. The previous day's VA comes from the Volume Profile
+of that session's 30-min bars. Since Yahoo only provides ~60 days of 30-min data, the sample is
+small — the result is a *validation* of the rule in the present, not a decades-long statistic
+(see the report).
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from vptrading.core.profile import build_volume_profile
 class Rule80Params:
     value_area_pct: float = 0.70
     n_bins: int = 50
-    acceptance_bars: int = 2     # períodos de 30 min consecutivos fechando dentro da VA
+    acceptance_bars: int = 2     # consecutive 30-min periods closing inside the VA
     stop_buffer_pct: float = 0.002
     risk_per_trade: float = 0.01
     max_leverage: float = 1.0
@@ -48,7 +49,7 @@ def _session_va(session: pd.DataFrame, p: Rule80Params) -> tuple[float, float, f
 
 
 def backtest_rule80(df30: pd.DataFrame, *, cost_model: CostModel, p: Rule80Params) -> BacktestResult:
-    """Backtest da Regra dos 80% sobre barras de 30 min."""
+    """Backtest of the 80% Rule over 30-min bars."""
     df30 = df30.sort_index()
     sessions = [g for _, g in df30.groupby(df30.index.normalize())]
     rt_cost = cost_model.round_trip_pct()
@@ -72,13 +73,13 @@ def backtest_rule80(df30: pd.DataFrame, *, cost_model: CostModel, p: Rule80Param
 
         day_open = opens[0]
         if day_open > vah:
-            bias = -1  # short: alvo VAL
+            bias = -1  # short: target VAL
         elif day_open < val:
-            bias = 1   # long: alvo VAH
+            bias = 1   # long: target VAH
         else:
-            continue   # abriu DENTRO da VA -> não é setup da regra dos 80%
+            continue   # opened INSIDE the VA -> not an 80% Rule setup
 
-        # Conta aceitação: barras consecutivas fechando dentro de [val, vah].
+        # Count acceptance: consecutive bars closing inside [val, vah].
         entry_bar = None
         consecutive = 0
         for b in range(len(cur)):

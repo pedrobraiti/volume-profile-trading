@@ -1,8 +1,8 @@
-"""Modelos de custo de transação por mercado.
+"""Per-market transaction cost models.
 
-Custo total por trade = (comissão + emolumentos) sobre o notional + slippage de entrada e saída.
-O slippage é modelado como uma fração do preço (proxy de spread + impacto), aplicada nas duas
-pontas. Valores default são realistas para varejo atual; documentados no relatório e ajustáveis.
+Total cost per trade = (commission + exchange fee) on the notional + entry and exit slippage.
+Slippage is modeled as a fraction of price (a proxy for spread + impact), applied on both
+sides. Default values are realistic for current retail trading; documented in the report and adjustable.
 """
 
 from __future__ import annotations
@@ -12,24 +12,24 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class CostModel:
-    """Custos de transação de ida e volta (round-trip)."""
+    """Round-trip transaction costs."""
 
-    commission_pct: float   # comissão proporcional ao notional, por ponta
-    exchange_fee_pct: float  # emolumentos/taxas de bolsa, por ponta
-    slippage_pct: float      # slippage estimado, por ponta
+    commission_pct: float   # commission proportional to the notional, per side
+    exchange_fee_pct: float  # exchange fees/charges, per side
+    slippage_pct: float      # estimated slippage, per side
 
     def per_side_pct(self) -> float:
         return self.commission_pct + self.exchange_fee_pct + self.slippage_pct
 
     def round_trip_pct(self) -> float:
-        """Custo total estimado de entrada + saída, como fração do preço."""
+        """Estimated total entry + exit cost, as a fraction of price."""
         return 2.0 * self.per_side_pct()
 
 
-# Mercado US (ETFs como SPY/QQQ): corretagem zero no varejo moderno; spread mínimo + slippage leve.
+# US market (ETFs such as SPY/QQQ): zero commission in modern retail; minimal spread + light slippage.
 COST_US = CostModel(commission_pct=0.0, exchange_fee_pct=0.00003, slippage_pct=0.0005)
 
-# Mercado BR (B3): corretagem ~zero no varejo atual; emolumentos B3 ~0.03%; slippage maior.
+# BR market (B3): ~zero commission in current retail; B3 exchange fees ~0.03%; higher slippage.
 COST_BR = CostModel(commission_pct=0.0, exchange_fee_pct=0.0003, slippage_pct=0.0010)
 
 COST_MODELS: dict[str, CostModel] = {"US": COST_US, "BR": COST_BR}

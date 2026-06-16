@@ -1,9 +1,9 @@
-"""Geração do relatório PDF técnico a partir de ``results.pkl`` e das figuras.
+"""Builds the technical PDF report from ``results.pkl`` and the figures.
 
-Usa ReportLab (Platypus). O relatório é em português, técnico e honesto: lidera com o sumário
-executivo, detalha metodologia (incluindo a validação walk-forward), apresenta resultados com
-gráficos e muitas tabelas comparativas, confronta as afirmações do documento de referência com os
-dados, recomenda parâmetros conservadores e agressivos, e fecha com limitações.
+Uses ReportLab (Platypus). The report is technical and honest: it leads with the executive
+summary, details the methodology (including the walk-forward validation), presents results with
+charts and many comparative tables, confronts the reference document's claims against the data,
+recommends conservative and aggressive parameters, and closes with limitations.
 """
 
 from __future__ import annotations
@@ -34,10 +34,10 @@ LIGHT = colors.HexColor("#eef1f5")
 GREY = colors.HexColor("#8a8f98")
 
 STRAT_LABELS = {
-    "REV": "Reversão ao POC",
+    "REV": "POC reversion",
     "E2E": "Edge-to-Edge",
-    "BRK": "Breakout da VA",
-    "EXH": "Exaustão de volume",
+    "BRK": "VA breakout",
+    "EXH": "Volume exhaustion",
 }
 
 
@@ -105,7 +105,7 @@ def _table(data, col_widths, *, header_bg=NAVY, font=8.5, align="CENTER"):
 
 
 def _color_cells(table_data, value_grid, *, good_above=1.0):
-    """Devolve comandos de estilo para colorir células numéricas (verde bom / vermelho ruim)."""
+    """Returns style commands to color numeric cells (green = good / red = bad)."""
     cmds = []
     for (r, c), v in value_grid.items():
         if v is None:
@@ -122,149 +122,152 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
     doc = SimpleDocTemplate(
         str(out_path), pagesize=A4,
         leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.8 * cm, bottomMargin=1.8 * cm,
-        title="Volume Profile — Estudo de Backtesting", author="Pedro Braiti",
+        title="Volume Profile — Backtesting Study", author="Pedro Braiti",
     )
     S = []
 
-    # ---------------------------------------------------------------- Capa
+    # ---------------------------------------------------------------- Cover
     S.append(Spacer(1, 3.2 * cm))
     S.append(Paragraph("Volume Profile / Market Profile", ss["TitleBig"]))
-    S.append(Paragraph("Estudo quantitativo de backtesting — em busca de um edge real, "
-                       "validado out-of-sample", ss["Sub"]))
+    S.append(Paragraph("Quantitative backtesting study — in search of a real edge, "
+                       "validated out-of-sample", ss["Sub"]))
     S.append(Spacer(1, 0.6 * cm))
-    S.append(Paragraph("33 anos de dados · 5 instrumentos (EUA + Brasil) · 4 estratégias · "
-                       "validação walk-forward · custos incluídos", ss["Sub"]))
+    S.append(Paragraph("33 years of data · 5 instruments (US + Brazil) · 4 strategies · "
+                       "walk-forward validation · costs included", ss["Sub"]))
     S.append(Spacer(1, 2.4 * cm))
     meta = [
-        ["Período diário", "1993–2026 (até onde cada ativo tem histórico)"],
-        ["Instrumentos", "SPY, QQQ (EUA) · PETR4, VALE3, BOVA11 (B3)"],
-        ["Fonte de dados", "Yahoo Finance (yfinance), gratuito"],
-        ["Estratégias", "Reversão ao POC · Edge-to-Edge · Breakout da VA · Exaustão de volume"],
-        ["Métrica-rainha", "Expectância por trade após custos"],
-        ["Validação", "Walk-forward (otimiza no passado, mede no futuro não visto)"],
-        ["Data de geração", "Junho de 2026"],
+        ["Daily period", "1993–2026 (as far back as each asset's history goes)"],
+        ["Instruments", "SPY, QQQ (US) · PETR4, VALE3, BOVA11 (B3)"],
+        ["Data source", "Yahoo Finance (yfinance), free"],
+        ["Strategies", "POC reversion · Edge-to-Edge · VA breakout · Volume exhaustion"],
+        ["Key metric", "Per-trade expectancy after costs"],
+        ["Validation", "Walk-forward (optimize on the past, measure on the unseen future)"],
+        ["Generated on", "June 2026"],
     ]
     S.append(_table([[Paragraph(f"<b>{k}</b>", ss["Small"]), Paragraph(v, ss["Small"])]
                      for k, v in meta], [4.5 * cm, 11.5 * cm], header_bg=colors.white, font=9))
     S.append(Spacer(1, 1.5 * cm))
-    S.append(Paragraph("<i>Documento técnico de pesquisa. Não é recomendação de investimento. "
-                       "Trading com alavancagem envolve risco de perda total.</i>", ss["Cap"]))
+    S.append(Paragraph("<i>Technical research document. Not investment advice. "
+                       "Leveraged trading carries the risk of total loss.</i>", ss["Cap"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Sumário executivo
-    S.append(Paragraph("1. Sumário executivo", ss["H1"]))
+    # ---------------------------------------------------------------- Executive summary
+    S.append(Paragraph("1. Executive summary", ss["H1"]))
     port = results["portfolio"]
     pkey = "apenas_positivos_OOS" if "apenas_positivos_OOS" in port else "todos"
     pm = port[pkey]["metrics"]
     wf = results["walkforward"]
 
     S.append(Paragraph(
-        "Testamos as regras objetivas da estratégia Volume Profile (POC, Value Area, day-types, "
-        "Regra dos 80%, edge-to-edge e leitura de volume) em 33 anos de dados, com custos e — "
-        "crucialmente — com <b>validação walk-forward</b>: os parâmetros são escolhidos apenas com "
-        "dados do passado e medidos em dados que o otimizador nunca viu. As conclusões centrais:",
+        "We tested the objective rules of the Volume Profile strategy (POC, Value Area, day-types, "
+        "the 80% Rule, edge-to-edge and volume reading) over 33 years of data, with costs and — "
+        "crucially — with <b>walk-forward validation</b>: the parameters are chosen using only "
+        "past data and measured on data the optimizer never saw. The central conclusions:",
         ss["Body"]))
     findings = [
-        f"<b>Existe um edge real, porém modesto, na ponta comprada de índices líquidos.</b> "
-        f"Out-of-sample, QQQ e SPY são lucrativos em todas as quatro estratégias "
+        f"<b>A real but modest edge exists on the long side of liquid indices.</b> "
+        f"Out-of-sample, QQQ and SPY are profitable across all four strategies "
         f"(QQQ Edge-to-Edge: Profit Factor {_num(wf['E2E']['QQQ']['oos_metrics']['profit_factor'])}; "
-        f"QQQ Exaustão: expectância {_pct(wf['EXH']['QQQ']['oos_metrics']['expectancy_pct'],2)}/trade).",
-        "<b>A 'leitura de volume' funciona melhor que o perfil em si.</b> Comprar exaustão "
-        "('sem oferta' — novas mínimas com volume abaixo da média) foi a tática mais robusta "
-        "out-of-sample em ETFs de índice (PF 1,5–2,2).",
-        "<b>Reversão fadeia bem mercados balanceados e falha em tendência.</b> As ações brasileiras "
-        "(PETR4, VALE3), mais tendenciais/voláteis, deram expectância negativa em quase tudo — "
-        "exatamente o que a teoria prevê.",
-        "<b>Duas 'lendas' do método não se sustentam nos dados:</b> a Regra dos 80% não atravessou "
-        "80% das vezes (27–67% na amostra intraday recente) e foi negativa após custos; e os "
-        "day-types não preveem continuação — se algo, dias 'bearish' repicam mais (reversão).",
-        f"<b>Como sistema isolado, o edge não bate buy &amp; hold em retorno</b> (baixa exposição), "
-        f"mas entrega um fluxo mais suave: o portfólio diversificado (sleeves validados OOS) "
-        f"rendeu CAGR {_pct(pm['cagr_pct'])} com drawdown máximo de apenas {_pct(pm['max_drawdown_pct'])} "
-        f"e Sharpe {_num(pm['sharpe'])}.",
-        "<b>Sob falsificação rigorosa, o edge não se sustenta como estratégia autônoma.</b> "
-        "Permutação de volume, ablação só-preço, controle de entrada aleatória, retorno excedente e "
-        "bootstrap (§11) mostram que o ganho é, em boa parte, <b>exposição comprada</b> a ativos "
-        "que subiram. Nenhum sleeve gera alfa sobre a própria exposição nem bate o risk-free a 1% "
-        "de risco, e nenhum tem Profit Factor cujo IC 95% exclua 1,0. Só no SPY o sinal de volume é "
-        "estatisticamente real — porém pequeno e frágil no tamanho de amostra.",
+        f"QQQ Exhaustion: expectancy {_pct(wf['EXH']['QQQ']['oos_metrics']['expectancy_pct'],2)}/trade).",
+        "<b>'Volume reading' works better than the profile itself.</b> Buying exhaustion "
+        "('no-supply' — new lows on below-average volume) was the most robust tactic "
+        "out-of-sample on index ETFs (PF 1.5-2.2).",
+        "<b>Reversion fades balanced markets well and fails in trend.</b> The Brazilian stocks "
+        "(PETR4, VALE3), more trending/volatile, produced negative expectancy on almost everything — "
+        "exactly what theory predicts.",
+        "<b>Two of the method's 'legends' do not hold up in the data:</b> the 80% Rule did not "
+        "traverse 80% of the time (27-67% in the recent intraday sample) and was negative after "
+        "costs; and day-types do not predict continuation — if anything, 'bearish' days bounce "
+        "more (reversion).",
+        f"<b>As a standalone system, the edge does not beat buy &amp; hold on return</b> (low exposure), "
+        f"but it delivers a smoother stream: the diversified portfolio (OOS-validated sleeves) "
+        f"returned CAGR {_pct(pm['cagr_pct'])} with a maximum drawdown of only {_pct(pm['max_drawdown_pct'])} "
+        f"and Sharpe {_num(pm['sharpe'])}.",
+        "<b>Under rigorous falsification, the edge does not hold up as a standalone strategy.</b> "
+        "Volume permutation, price-only ablation, random-entry control, excess return and "
+        "bootstrap (§11) show that the gain is, to a large extent, <b>long exposure</b> to assets "
+        "that went up. No sleeve generates alpha over its own exposure or beats the risk-free rate "
+        "at 1% risk, and none has a Profit Factor whose 95% CI excludes 1.0. Only on SPY is the "
+        "volume signal statistically real — though small and fragile at this sample size.",
     ]
     for f in findings:
         S.append(Paragraph("• " + f, ss["VBullet"]))
     S.append(Spacer(1, 0.3 * cm))
     S.append(Paragraph(
-        "Em uma frase: o Volume Profile é uma <b>lente de contexto</b> legítima e o filtro de volume "
-        "<b>adiciona seletividade real</b>, mas não encontramos um <b>edge econômico robusto e "
-        "autônomo</b> — não é a 'fórmula secreta' vendida em vídeos. O valor está na leitura de "
-        "contexto e na gestão de risco; uso operacional exige ceticismo, execução barata e "
-        "expectativas modestas.",
+        "In one sentence: Volume Profile is a legitimate <b>context lens</b> and the volume filter "
+        "<b>adds real selectivity</b>, but we found no <b>robust, standalone economic edge</b> — "
+        "it is not the 'secret formula' sold in videos. The value lies in reading context and in "
+        "risk management; operational use demands skepticism, cheap execution and modest "
+        "expectations.",
         ss["Body"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Metodologia
-    S.append(Paragraph("2. Metodologia", ss["H1"]))
-    S.append(Paragraph("2.1 Dados e instrumentos", ss["H2"]))
-    inst_rows = [["Ticker", "Nome", "Mercado", "Início", "Pregões", "Buy&amp;Hold CAGR"]]
+    # ---------------------------------------------------------------- Methodology
+    S.append(Paragraph("2. Methodology", ss["H1"]))
+    S.append(Paragraph("2.1 Data and instruments", ss["H2"]))
+    inst_rows = [["Ticker", "Name", "Market", "Start", "Sessions", "Buy&amp;Hold CAGR"]]
     for tk, d in results["instruments"].items():
         inst_rows.append([tk.replace(".SA", ""), d["name"], d["market"],
                           str(d["start"].date()), f"{d['n_days']:,}",
                           _pct(d["buyhold"]["cagr_pct"])])
     S.append(_table(inst_rows, [2.0 * cm, 4.6 * cm, 2.0 * cm, 2.4 * cm, 2.2 * cm, 2.8 * cm]))
     S.append(Paragraph(
-        "Dados diários OHLCV do Yahoo Finance (longo histórico, volume confiável em ETFs/ações). "
-        "O intraday gratuito é curto (~60 dias de 30 min), o que limita o teste fiel das regras "
-        "intraday (Regra dos 80%) a uma amostra recente — por isso a abordagem é <b>híbrida</b>: "
-        "backtest diário longo para robustez estatística + validação intraday recente.", ss["Cap"]))
+        "Daily OHLCV data from Yahoo Finance (long history, reliable volume on ETFs/stocks). "
+        "Free intraday data is short (~60 days of 30-min bars), which limits a faithful test of the "
+        "intraday rules (80% Rule) to a recent sample — hence the <b>hybrid</b> approach: a long "
+        "daily backtest for statistical robustness + recent intraday validation.", ss["Cap"]))
 
-    S.append(Paragraph("2.2 As quatro estratégias", ss["H2"]))
+    S.append(Paragraph("2.2 The four strategies", ss["H2"]))
     strat_desc = [
-        ["Reversão ao POC", "Fadeia extremos: vende acima da VAH / compra abaixo da VAL, alvo no "
-         "POC. Rotação clássica do dia balanceado 'D'."],
-        ["Edge-to-Edge", "Entra numa borda da Value Area e mira a borda oposta, atravessando o "
-         "interior do perfil. Alvo maior."],
-        ["Breakout da VA", "Opera a favor do rompimento da Value Area (atividade iniciante), "
-         "alvo por múltiplo de ATR. Capta tendência."],
-        ["Exaustão de volume", "Compra 'sem oferta' (§6): novas mínimas com volume abaixo da média "
-         "= vendedores esgotados. Não depende do perfil."],
+        ["POC reversion", "Fades extremes: sells above the VAH / buys below the VAL, targeting the "
+         "POC. The classic rotation of a balanced 'D' day."],
+        ["Edge-to-Edge", "Enters at one edge of the Value Area and aims for the opposite edge, "
+         "crossing the interior of the profile. Larger target."],
+        ["VA breakout", "Trades in the direction of a Value Area breakout (initiating activity), "
+         "with an ATR-multiple target. Captures trend."],
+        ["Volume exhaustion", "Buys 'no-supply' (§6): new lows on below-average volume = exhausted "
+         "sellers. Does not depend on the profile."],
     ]
-    S.append(_table([["Estratégia", "Lógica"]] + strat_desc, [3.8 * cm, 12.2 * cm], align="LEFT"))
+    S.append(_table([["Strategy", "Logic"]] + strat_desc, [3.8 * cm, 12.2 * cm], align="LEFT"))
 
-    S.append(Paragraph("2.3 Custos, sizing e premissas", ss["H2"]))
+    S.append(Paragraph("2.3 Costs, sizing and assumptions", ss["H2"]))
     for b in [
-        "<b>Sem lookahead:</b> os níveis do perfil usam só dados anteriores ao dia avaliado; sinal "
-        "no fechamento do dia <i>t</i> → entrada na abertura de <i>t+1</i>.",
-        "<b>Custos:</b> EUA ~0,05% round-trip (ETF + slippage); B3 ~0,2% (emolumentos + slippage). "
-        "Todos os resultados são líquidos.",
-        "<b>Sizing por risco:</b> cada trade arrisca 1% do capital no stop (ATR). Saídas por stop, "
-        "alvo ou tempo; em ambiguidade, assume-se o stop primeiro (pessimista).",
-        "<b>Walk-forward:</b> 8 anos de treino → 3 anos de teste, âncora deslizante. Os parâmetros "
-        "do teste vêm só do treino. A concatenação dos trechos de teste é o resultado honesto.",
+        "<b>No lookahead:</b> profile levels use only data prior to the evaluated day; a signal "
+        "at the close of day <i>t</i> → entry at the open of <i>t+1</i>.",
+        "<b>Costs:</b> US ~0.05% round-trip (ETF + slippage); B3 ~0.2% (fees + slippage). "
+        "All results are net.",
+        "<b>Risk-based sizing:</b> each trade risks 1% of capital at the stop (ATR). Exits by stop, "
+        "target or time; when ambiguous, the stop is assumed to hit first (pessimistic).",
+        "<b>Walk-forward:</b> 8 years of training → 3 years of testing, sliding anchor. The test "
+        "parameters come only from the training window. The concatenation of the test segments is "
+        "the honest result.",
     ]:
         S.append(Paragraph("• " + b, ss["VBullet"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Conceito
-    S.append(Paragraph("3. Como ler o Volume Profile", ss["H1"]))
+    # ---------------------------------------------------------------- Concept
+    S.append(Paragraph("3. How to read the Volume Profile", ss["H1"]))
     S.append(Paragraph(
-        "O perfil é um histograma de volume por preço. Onde houve muito volume (HVN), o preço "
-        "'gruda' — é valor aceito; onde houve pouco (LVN), o preço 'escorrega'. O POC é o preço de "
-        "maior volume; a Value Area (~70% do volume, ±1 desvio-padrão de uma gaussiana) vai da VAL "
-        "à VAH. Esses níveis são objetivos — melhores que suporte/resistência 'no olho'.", ss["Body"]))
+        "The profile is a histogram of volume by price. Where there was a lot of volume (HVN), "
+        "price 'sticks' — it is accepted value; where there was little (LVN), price 'slips'. The "
+        "POC is the price with the most volume; the Value Area (~70% of volume, ±1 standard "
+        "deviation of a Gaussian) runs from the VAL to the VAH. These levels are objective — better "
+        "than support/resistance drawn 'by eye'.", ss["Body"]))
     S.append(_img(figdir / "01_volume_profile.png"))
-    S.append(Paragraph("Figura 1 — Perfil composite do SPY (120 pregões): o cluster de volume no "
-                       "POC coincide com a faixa onde o preço passou mais tempo.", ss["Cap"]))
+    S.append(Paragraph("Figure 1 — Composite profile of SPY (120 sessions): the volume cluster at "
+                       "the POC coincides with the band where price spent the most time.", ss["Cap"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Resultados OOS
-    S.append(Paragraph("4. Resultados: o que funciona (e onde)", ss["H1"]))
-    S.append(Paragraph("4.1 Panorama out-of-sample", ss["H2"]))
+    # ---------------------------------------------------------------- OOS results
+    S.append(Paragraph("4. Results: what works (and where)", ss["H1"]))
+    S.append(Paragraph("4.1 Out-of-sample overview", ss["H2"]))
     S.append(_img(figdir / "02_oos_heatmap.png"))
-    S.append(Paragraph("Figura 2 — Validação walk-forward (long-only, com custos). Verde = edge "
-                       "positivo. O padrão é nítido: EUA verde, ações Brasil vermelho.", ss["Cap"]))
+    S.append(Paragraph("Figure 2 — Walk-forward validation (long-only, with costs). Green = "
+                       "positive edge. The pattern is clear: US green, Brazilian stocks red.", ss["Cap"]))
 
-    # Tabela completa walk-forward
-    S.append(Paragraph("4.2 Tabela completa de desempenho out-of-sample", ss["H2"]))
-    wf_rows = [["Estratégia", "Ativo", "N", "Win", "Exp/trade", "PF", "CAGR", "Sharpe", "MaxDD"]]
+    # Full walk-forward table
+    S.append(Paragraph("4.2 Full out-of-sample performance table", ss["H2"]))
+    wf_rows = [["Strategy", "Asset", "N", "Win", "Exp/trade", "PF", "CAGR", "Sharpe", "MaxDD"]]
     color_cmds = []
     rr = 1
     for s in wf:
@@ -283,185 +286,191 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
                               1.5 * cm, 1.5 * cm, 1.6 * cm], font=8)
     wf_tbl.setStyle(TableStyle(color_cmds))
     S.append(wf_tbl)
-    S.append(Paragraph("Tabela 1 — Desempenho out-of-sample por estratégia × instrumento. "
-                       "Profit Factor e expectância coloridos (verde = lucrativo).", ss["Cap"]))
+    S.append(Paragraph("Table 1 — Out-of-sample performance by strategy × instrument. "
+                       "Profit Factor and expectancy color-coded (green = profitable).", ss["Cap"]))
     S.append(PageBreak())
 
-    S.append(Paragraph("4.3 Curvas de capital out-of-sample", ss["H2"]))
+    S.append(Paragraph("4.3 Out-of-sample equity curves", ss["H2"]))
     S.append(_img(figdir / "03_oos_equity.png"))
-    S.append(Paragraph("Figura 3 — Capital OOS da melhor estratégia long por instrumento. QQQ "
-                       "(breakout) lidera; ações brasileiras ficam abaixo de 1,0.", ss["Cap"]))
-    S.append(Paragraph("4.4 O edge não é overfitting", ss["H2"]))
+    S.append(Paragraph("Figure 3 — OOS equity of the best long strategy per instrument. QQQ "
+                       "(breakout) leads; Brazilian stocks stay below 1.0.", ss["Cap"]))
+    S.append(Paragraph("4.4 The edge is not overfitting", ss["H2"]))
     S.append(_img(figdir / "04_walkforward_degradation.png", width=15.5 * cm))
-    S.append(Paragraph("Figura 4 — Expectância treino vs teste por janela. O desempenho out-of-"
-                       "sample acompanha (e às vezes supera) o in-sample — sinal de edge genuíno, "
-                       "não de sobreajuste.", ss["Cap"]))
+    S.append(Paragraph("Figure 4 — Training vs test expectancy per window. Out-of-sample "
+                       "performance tracks (and sometimes exceeds) the in-sample — a sign of a "
+                       "genuine edge, not overfitting.", ss["Cap"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Carro-chefe + params
-    S.append(Paragraph("5. Carro-chefe: Exaustão de volume", ss["H1"]))
+    # ---------------------------------------------------------------- Flagship + params
+    S.append(Paragraph("5. Flagship: Volume exhaustion", ss["H1"]))
     S.append(Paragraph(
-        "A tática de comprar exaustão de venda (novas mínimas sem volume) foi a mais robusta. "
-        "Abaixo, a sensibilidade dos parâmetros e a distribuição de retornos no SPY.", ss["Body"]))
+        "The tactic of buying selling exhaustion (new lows on no volume) was the most robust. "
+        "Below, the parameter sensitivity and the return distribution on SPY.", ss["Body"]))
     S.append(_img(figdir / "05_param_heatmap.png", width=12.5 * cm))
-    S.append(Paragraph("Figura 5 — Profit Factor por janela × stop. Janelas maiores (40 dias) e "
-                       "stop ~2×ATR foram as mais fortes; todas as células são lucrativas.", ss["Cap"]))
+    S.append(Paragraph("Figure 5 — Profit Factor by window × stop. Larger windows (40 days) and "
+                       "a stop of ~2×ATR were the strongest; all cells are profitable.", ss["Cap"]))
     S.append(_img(figdir / "10_trade_distribution.png", width=14.5 * cm))
-    S.append(Paragraph("Figura 6 — Distribuição de retornos por trade: assimetria favorável "
-                       "(perdas limitadas pelo stop, alguns ganhos grandes).", ss["Cap"]))
+    S.append(Paragraph("Figure 6 — Per-trade return distribution: favorable skew "
+                       "(losses capped by the stop, a few large gains).", ss["Cap"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Estudos das afirmações
-    S.append(Paragraph("6. As afirmações do método vs os dados", ss["H1"]))
-    S.append(Paragraph("6.1 Leitura de volume: divergência / 'sem oferta'", ss["H2"]))
+    # ---------------------------------------------------------------- Claim studies
+    S.append(Paragraph("6. The method's claims vs the data", ss["H1"]))
+    S.append(Paragraph("6.1 Volume reading: divergence / 'no-supply'", ss["H2"]))
     S.append(_img(figdir / "07_divergence.png", width=15.5 * cm))
-    S.append(Paragraph("Figura 7 — Retorno futuro de 5 dias. Comprar novas mínimas com volume "
-                       "baixo (divergência altista) supera o baseline em SPY, QQQ e VALE3 — a "
-                       "leitura de volume do §6 tem mérito.", ss["Cap"]))
+    S.append(Paragraph("Figure 7 — 5-day forward return. Buying new lows on low volume (bullish "
+                       "divergence) beats the baseline on SPY, QQQ and VALE3 — the volume reading "
+                       "of §6 has merit.", ss["Cap"]))
 
-    S.append(Paragraph("6.2 Day-types não preveem continuação", ss["H2"]))
+    S.append(Paragraph("6.2 Day-types do not predict continuation", ss["H2"]))
     S.append(_img(figdir / "06_daytype.png", width=15.5 * cm))
-    S.append(Paragraph("Figura 8 — Retorno futuro por day-type (média dos 5 ativos). Se 'P' fosse "
-                       "bullish e 'b' bearish, as barras divergiriam nessa direção. Ocorre o oposto "
-                       "(reversão), refutando o uso dos rótulos como sinal de continuação.", ss["Cap"]))
+    S.append(Paragraph("Figure 8 — Forward return by day-type (average across the 5 assets). If 'P' "
+                       "were bullish and 'b' bearish, the bars would diverge in that direction. The "
+                       "opposite happens (reversion), refuting the use of the labels as a "
+                       "continuation signal.", ss["Cap"]))
     S.append(PageBreak())
 
-    S.append(Paragraph("6.3 A Regra dos 80% não atravessa 80%", ss["H2"]))
+    S.append(Paragraph("6.3 The 80% Rule does not traverse 80%", ss["H2"]))
     S.append(_img(figdir / "08_rule80.png", width=15.5 * cm))
-    r80_rows = [["Ativo", "Setups", "Traverse rate", "Win rate", "Exp/trade", "Veredito"]]
+    r80_rows = [["Asset", "Setups", "Traverse rate", "Win rate", "Exp/trade", "Verdict"]]
     for tk, d in results["rule80"].items():
         dg = d["diagnostics"]
         m = d["metrics"]
         r80_rows.append([tk.replace(".SA", ""), str(dg["n"]),
                          _pct(dg["traverse_rate"], 0) if dg["n"] else "—",
                          _pct(m["win_rate"], 0), _pct(m["expectancy_pct"], 2),
-                         "negativo" if m["expectancy_pct"] <= 0 else "positivo"])
+                         "negative" if m["expectancy_pct"] <= 0 else "positive"])
     S.append(_table(r80_rows, [2.6 * cm, 2.0 * cm, 2.8 * cm, 2.4 * cm, 2.6 * cm, 2.6 * cm]))
-    S.append(Paragraph("Tabela 2 — Regra dos 80% (30 min, 60 dias). Traverse rate bem abaixo de "
-                       "80% e expectância negativa após custos. <b>Ressalva forte:</b> amostra "
-                       "minúscula (7–14 setups/ativo) — indicativo, não conclusivo.", ss["Cap"]))
+    S.append(Paragraph("Table 2 — 80% Rule (30 min, 60 days). Traverse rate well below 80% and "
+                       "negative expectancy after costs. <b>Strong caveat:</b> tiny sample "
+                       "(7-14 setups/asset) — indicative, not conclusive.", ss["Cap"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Portfólio
-    S.append(Paragraph("7. Portfólio diversificado", ss["H1"]))
+    # ---------------------------------------------------------------- Portfolio
+    S.append(Paragraph("7. Diversified portfolio", ss["H1"]))
     S.append(Paragraph(
-        "Cada estratégia isolada negocia pouco (baixa exposição). Combinando, para cada instrumento, "
-        "a estratégia que validou OOS, num portfólio de capital igualitário, eleva-se a exposição e "
-        "diversifica-se o risco — o resultado é um fluxo de retorno notavelmente suave.", ss["Body"]))
+        "Each strategy in isolation trades little (low exposure). Combining, for each instrument, "
+        "the strategy that validated OOS into an equal-capital portfolio raises exposure and "
+        "diversifies risk — the result is a remarkably smooth return stream.", ss["Body"]))
     S.append(_img(figdir / "09_portfolio.png"))
-    S.append(Paragraph("Figura 9 — Portfólio (sleeves validados OOS) e seu drawdown. Curva estável, "
-                       "drawdown raso.", ss["Cap"]))
-    port_rows = [["Portfólio", "Sleeves", "CAGR", "Sharpe", "MaxDD", "Exposição"]]
-    for key, label in [("apenas_positivos_OOS", "Só sleeves positivos OOS"),
-                       ("todos", "Todos os 5 instrumentos")]:
+    S.append(Paragraph("Figure 9 — Portfolio (OOS-validated sleeves) and its drawdown. Stable "
+                       "curve, shallow drawdown.", ss["Cap"]))
+    port_rows = [["Portfolio", "Sleeves", "CAGR", "Sharpe", "MaxDD", "Exposure"]]
+    for key, label in [("apenas_positivos_OOS", "OOS-positive sleeves only"),
+                       ("todos", "All 5 instruments")]:
         if key in port:
             m = port[key]["metrics"]
             port_rows.append([label, str(len(port[key]["sleeves"])), _pct(m["cagr_pct"]),
                               _num(m["sharpe"]), _pct(m["max_drawdown_pct"]),
                               _pct(port[key]["exposure_pct"], 0)])
     S.append(_table(port_rows, [4.6 * cm, 1.8 * cm, 2.2 * cm, 2.0 * cm, 2.2 * cm, 2.4 * cm]))
-    S.append(Paragraph("Tabela 3 — Métricas do portfólio (risco 1%/trade, sem alavancagem).", ss["Cap"]))
+    S.append(Paragraph("Table 3 — Portfolio metrics (1% risk/trade, no leverage).", ss["Cap"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Conservador vs Agressivo
-    S.append(Paragraph("8. Conservador vs agressivo: o dial de risco", ss["H1"]))
+    # ---------------------------------------------------------------- Conservative vs Aggressive
+    S.append(Paragraph("8. Conservative vs aggressive: the risk dial", ss["H1"]))
     S.append(Paragraph(
-        "Dois eixos controlam o perfil de risco: (a) os <b>parâmetros</b> (stop largo e alta "
-        "seletividade = mais conservador) e (b) o <b>sizing/alavancagem</b>. Como o Sharpe é "
-        "praticamente invariante ao sizing, alavancar só troca retorno por drawdown — não cria "
-        "edge. A escolha é de apetite de risco, não de qualidade.", ss["Body"]))
+        "Two axes control the risk profile: (a) the <b>parameters</b> (wide stop and high "
+        "selectivity = more conservative) and (b) the <b>sizing/leverage</b>. Since Sharpe is "
+        "practically invariant to sizing, leveraging only trades return for drawdown — it does not "
+        "create edge. The choice is one of risk appetite, not of quality.", ss["Body"]))
     S.append(_img(figdir / "11_sizing_tradeoff.png", width=14.5 * cm))
-    S.append(Paragraph("Figura 10 — CAGR vs drawdown ao variar risco/alavancagem. Linha do "
-                       "portfólio domina a do ativo isolado (diversificação).", ss["Cap"]))
+    S.append(Paragraph("Figure 10 — CAGR vs drawdown as risk/leverage varies. The portfolio line "
+                       "dominates the single-asset one (diversification).", ss["Cap"]))
 
-    # Tabela perfis de parâmetro
+    # Parameter-profile table
     pp = results["flagship"]["param_profiles"]
-    pp_rows = [["Perfil de parâmetro", "N", "Win", "Exp/trade", "PF", "MaxDD"]]
+    pp_labels = {
+        "Conservador (stop largo, VA 0,80)": "Conservative (wide stop, VA 0.80)",
+        "Agressivo (stop curto, alvo 5xATR)": "Aggressive (tight stop, 5xATR target)",
+    }
+    pp_rows = [["Parameter profile", "N", "Win", "Exp/trade", "PF", "MaxDD"]]
     for name, d in pp.items():
         m = d["metrics"]
-        pp_rows.append([name, str(m["n_trades"]), _pct(m["win_rate"], 0),
+        pp_rows.append([pp_labels.get(name, name), str(m["n_trades"]), _pct(m["win_rate"], 0),
                         _pct(m["expectancy_pct"], 2), _num(m["profit_factor"]),
                         _pct(m["max_drawdown_pct"])])
     S.append(_table(pp_rows, [6.5 * cm, 1.3 * cm, 1.4 * cm, 2.2 * cm, 1.5 * cm, 2.0 * cm]))
-    S.append(Paragraph("Tabela 4 — Perfis de parâmetro (Exaustão, SPY). Conservador = mais win "
-                       "rate; agressivo = maior payoff, menor win rate. Tradeoff clássico.", ss["Cap"]))
+    S.append(Paragraph("Table 4 — Parameter profiles (Exhaustion, SPY). Conservative = higher win "
+                       "rate; aggressive = higher payoff, lower win rate. The classic tradeoff.", ss["Cap"]))
 
     if "leverage_sweep" in port:
-        lev_rows = [["Alavancagem", "CAGR", "Sharpe", "MaxDD", "Retorno total"]]
+        lev_rows = [["Leverage", "CAGR", "Sharpe", "MaxDD", "Total return"]]
         for k, d in port["leverage_sweep"].items():
             m = d["metrics"]
             lev_rows.append([k, _pct(m["cagr_pct"]), _num(m["sharpe"]),
                              _pct(m["max_drawdown_pct"]), _pct(m["total_return_pct"])])
         S.append(_table(lev_rows, [3.0 * cm, 3.0 * cm, 2.6 * cm, 2.8 * cm, 3.2 * cm]))
-        S.append(Paragraph("Tabela 5 — Portfólio sob alavancagem. Sharpe constante; só muda a "
-                           "escala de retorno e drawdown.", ss["Cap"]))
+        S.append(Paragraph("Table 5 — Portfolio under leverage. Sharpe constant; only the scale of "
+                           "return and drawdown changes.", ss["Cap"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Custos + contexto
-    S.append(Paragraph("9. Sensibilidade a custos e contexto", ss["H1"]))
+    # ---------------------------------------------------------------- Costs + context
+    S.append(Paragraph("9. Cost sensitivity and context", ss["H1"]))
     S.append(_img(figdir / "12_cost_sensitivity.png", width=14.5 * cm))
     cs = results["cost_sensitivity"]
-    cs_rows = [["Custo round-trip", "Expectância/trade", "Profit Factor", "CAGR"]]
+    cs_rows = [["Round-trip cost", "Expectancy/trade", "Profit Factor", "CAGR"]]
     for _, r in cs.iterrows():
         cs_rows.append([_pct(r["round_trip_cost_pct"], 2), _pct(r["expectancy_pct"], 3),
                         _num(r["profit_factor"]), _pct(r["cagr_pct"], 2)])
     S.append(_table(cs_rows, [4.0 * cm, 4.0 * cm, 3.5 * cm, 3.0 * cm]))
-    S.append(Paragraph("Tabela 6 / Figura 11 — O edge é real mas estreito: aproxima-se do "
-                       "breakeven (PF 1,0) sob custos de ~0,8% round-trip. Execução barata é "
-                       "pré-requisito.", ss["Cap"]))
+    S.append(Paragraph("Table 6 / Figure 11 — The edge is real but narrow: it approaches breakeven "
+                       "(PF 1.0) under ~0.8% round-trip costs. Cheap execution is a "
+                       "prerequisite.", ss["Cap"]))
     S.append(_img(figdir / "13_strategy_vs_buyhold.png"))
-    S.append(Paragraph("Figura 12 — Contexto (eixo log): buy &amp; hold do SPY vence em retorno "
-                       "absoluto, mas com drawdowns muito maiores (note 2008). O portfólio VP "
-                       "entrega menos retorno e muito menos sofrimento.", ss["Cap"]))
+    S.append(Paragraph("Figure 12 — Context (log axis): SPY buy &amp; hold wins on absolute return, "
+                       "but with much larger drawdowns (note 2008). The VP portfolio delivers less "
+                       "return and far less suffering.", ss["Cap"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Estudos complementares
+    # ---------------------------------------------------------------- Complementary studies
     if "complementary" in results:
         comp = results["complementary"]
-        S.append(Paragraph("10. Estudos complementares (§4.3, §6, §7)", ss["H1"]))
+        S.append(Paragraph("10. Complementary studies (§4.3, §6, §7)", ss["H1"]))
         S.append(Paragraph(
-            "Para esgotar o documento de referência, testamos também as leituras de volume 'cru' "
-            "(absorção e movimento saudável), o efeito do 'signal candle' e a sensibilidade à "
-            "resolução do histograma.", ss["Body"]))
+            "To exhaust the reference document, we also tested the 'raw' volume readings "
+            "(absorption and healthy movement), the effect of the 'signal candle' and the "
+            "sensitivity to histogram resolution.", ss["Body"]))
 
-        S.append(Paragraph("10.1 Leituras de volume cru: absorção e movimento saudável", ss["H2"]))
+        S.append(Paragraph("10.1 Raw volume readings: absorption and healthy movement", ss["H2"]))
         S.append(_img(figdir / "14_volume_events.png", width=15.5 * cm))
-        S.append(Paragraph("Figura 13 — A <b>absorção no fundo</b> (nova mínima + volume enorme + "
-                           "corpo pequeno) precede repiques fortes, sobretudo nas ações brasileiras "
-                           "(VALE3 +1,9%, PETR4 +1,6% vs ~0,35% de baseline). Já o 'movimento "
-                           "saudável' (candle e volume grandes) <b>não</b> supera o baseline em "
-                           "índices — efeito ≠ resultado, ao contrário do prometido.", ss["Cap"]))
+        S.append(Paragraph("Figure 13 — <b>Absorption at the bottom</b> (new low + huge volume + "
+                           "small body) precedes strong bounces, especially in Brazilian stocks "
+                           "(VALE3 +1.9%, PETR4 +1.6% vs ~0.35% baseline). The 'healthy movement' "
+                           "(large candle and volume), by contrast, does <b>not</b> beat the "
+                           "baseline on indices — effect ≠ outcome, contrary to what was "
+                           "promised.", ss["Cap"]))
 
-        S.append(Paragraph("10.2 O 'signal candle' (confirmação por volume) tem mérito", ss["H2"]))
+        S.append(Paragraph("10.2 The 'signal candle' (volume confirmation) has merit", ss["H2"]))
         S.append(_img(figdir / "15_signal_candle.png", width=14.5 * cm))
-        S.append(Paragraph("Figura 14 — Exigir um spike de volume no dia do sinal (§7) melhora "
-                           "nitidamente o QQQ (Profit Factor 1,1 → 1,9 em ~1,2–1,5× a média), mas "
-                           "filtra demais acima disso. Confirma a recomendação de 'esperar o candle "
-                           "de volume' — com moderação.", ss["Cap"]))
+        S.append(Paragraph("Figure 14 — Requiring a volume spike on the signal day (§7) clearly "
+                           "improves QQQ (Profit Factor 1.1 → 1.9 at ~1.2-1.5× the average), but "
+                           "over-filters above that. It confirms the recommendation to 'wait for "
+                           "the volume candle' — in moderation.", ss["Cap"]))
 
-        S.append(Paragraph("10.3 Resolução do perfil (a regra dos '400 rows')", ss["H2"]))
+        S.append(Paragraph("10.3 Profile resolution (the '400 rows' rule)", ss["H2"]))
         S.append(_img(figdir / "16_resolution.png", width=13.5 * cm))
-        S.append(Paragraph("Figura 15 — O edge é estável de 40 a 400 faixas de preço; mais "
-                           "resolução ajuda só marginalmente no swing diário. A insistência em "
-                           "'400 rows' importa mais no intraday fino do que aqui.", ss["Cap"]))
+        S.append(Paragraph("Figure 15 — The edge is stable from 40 to 400 price bins; more "
+                           "resolution helps only marginally in daily swing trading. The insistence "
+                           "on '400 rows' matters more in fine-grained intraday than here.", ss["Cap"]))
         S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Falsificação / ablação
+    # ---------------------------------------------------------------- Falsification / ablation
     if "falsification" in results:
         fals = results["falsification"]
         sl = fals["sleeves"]
-        S.append(Paragraph("11. Testes de falsificação e ablação: o edge é real?", ss["H1"]))
+        S.append(Paragraph("11. Falsification and ablation tests: is the edge real?", ss["H1"]))
         S.append(Paragraph(
-            "Antes de confiar no sleeve de Exaustão de volume, submetemo-lo a cinco testes de "
-            "falsificação com config <b>fixa</b> (sem reotimização, seed fixa) para responder: o "
-            "edge vem do <b>volume e da estrutura</b>, ou é só <b>viés comprado / buy-the-dip</b> "
-            "num ativo que sobe? Os testes: (1) permutação de volume; (2) ablação só-preço; "
-            "(3) controle de entrada aleatória; (4) retorno excedente sobre exposição e risk-free "
-            "(CDI 14,5% BRL / T-bill ~2% USD); (5) IC 95% por bootstrap.", ss["Body"]))
+            "Before trusting the Volume exhaustion sleeve, we subjected it to five falsification "
+            "tests with a <b>fixed</b> config (no re-optimization, fixed seed) to answer: does the "
+            "edge come from <b>volume and structure</b>, or is it just <b>long bias / buy-the-dip</b> "
+            "on an asset that goes up? The tests: (1) volume permutation; (2) price-only ablation; "
+            "(3) random-entry control; (4) excess return over exposure and risk-free "
+            "(CDI 14.5% BRL / T-bill ~2% USD); (5) 95% CI via bootstrap.", ss["Body"]))
 
-        # Tabela-veredito
-        vrows = [["Ativo", "Shuffle\nvolume", "Bate\nsó-preço", "Bate long\naleatório",
-                  "Alfa s/\nexposição", "Bate\nrisk-free", "IC PF\nexclui 1", "PASSA\nTODOS"]]
+        # Verdict table
+        vrows = [["Asset", "Volume\nshuffle", "Beats\nprice-only", "Beats random\nlong",
+                  "Alpha over\nexposure", "Beats\nrisk-free", "PF CI\nexcludes 1", "PASSES\nALL"]]
         vcolor = []
         ri = 1
         for tk, d in sl.items():
@@ -471,126 +480,130 @@ def build_report(results: dict, figdir: Path | str, out_path: Path | str) -> str
             row = [tk.replace(".SA", "")]
             for ci, key in enumerate(order, start=1):
                 ok = v[key]
-                row.append("SIM" if ok else "não")
+                row.append("YES" if ok else "no")
                 vcolor.append(("TEXTCOLOR", (ci, ri), (ci, ri), GREEN if ok else RED))
             vrows.append(row)
             ri += 1
         vt = _table(vrows, [2.0 * cm] + [1.85 * cm] * 7, font=7.5)
         vt.setStyle(TableStyle(vcolor))
         S.append(vt)
-        S.append(Paragraph("Tabela 8 — Veredito por sleeve. <b>Nenhum dos cinco instrumentos passa "
-                           "nos seis testes.</b> O SPY é o único que mostra sinal de volume "
-                           "estatisticamente real (passa shuffle, ablação e entrada aleatória), mas "
-                           "falha nos testes econômicos.", ss["Cap"]))
+        S.append(Paragraph("Table 8 — Verdict per sleeve. <b>None of the five instruments passes "
+                           "all six tests.</b> SPY is the only one showing a statistically real "
+                           "volume signal (passes shuffle, ablation and random entry), but it fails "
+                           "the economic tests.", ss["Cap"]))
 
-        # Ablação (vol vs só-preço)
-        ab_rows = [["Ativo", "Expectância c/ volume", "Expectância só-preço", "Δ (volume agrega)"]]
+        # Ablation (volume vs price-only)
+        ab_rows = [["Asset", "Expectancy w/ volume", "Expectancy price-only", "Δ (volume adds)"]]
         for tk, d in sl.items():
             a = d["ablation"]
             ab_rows.append([tk.replace(".SA", ""), _pct(a["vol_exp"], 3), _pct(a["price_exp"], 3),
                             _pct(a["delta_exp"], 3)])
         S.append(_table(ab_rows, [3.0 * cm, 4.5 * cm, 4.5 * cm, 4.0 * cm]))
-        S.append(Paragraph("Tabela 9 — Ablação só-preço: o filtro de volume quase dobra a "
-                           "expectância em SPY/QQQ (mais seletivo), mas atrapalha nas ações "
-                           "brasileiras. Volume agrega seletividade — em alguns ativos.", ss["Cap"]))
+        S.append(Paragraph("Table 9 — Price-only ablation: the volume filter nearly doubles "
+                           "expectancy on SPY/QQQ (more selective), but hurts on Brazilian stocks. "
+                           "Volume adds selectivity — on some assets.", ss["Cap"]))
         S.append(PageBreak())
 
         S.append(_img(figdir / "17_shuffle.png", width=16.0 * cm))
-        S.append(Paragraph("Figura 16 — Teste de permutação de volume. Só no SPY o PF real (linha "
-                           "vermelha) está claramente na cauda direita dos 500 embaralhamentos "
-                           "(p = 0,002): a relação preço↔volume carrega sinal. Nos demais, volume "
-                           "embaralhado faz tão bem quanto o real.", ss["Cap"]))
+        S.append(Paragraph("Figure 16 — Volume permutation test. Only on SPY is the real PF (red "
+                           "line) clearly in the right tail of the 500 shuffles (p = 0.002): the "
+                           "price↔volume relationship carries signal. For the rest, shuffled volume "
+                           "does as well as the real thing.", ss["Cap"]))
         S.append(_img(figdir / "19_bootstrap_ci.png", width=14.5 * cm))
-        S.append(Paragraph("Figura 17 — IC 95% do Profit Factor (bootstrap, 10k). Todas as barras "
-                           "cruzam 1,0 — inclusive o SPY (limite inferior 0,99). Com ~80–150 trades, "
-                           "o edge <b>não é estatisticamente distinguível de zero</b> a 95%.", ss["Cap"]))
+        S.append(Paragraph("Figure 17 — 95% CI of the Profit Factor (bootstrap, 10k). All bars "
+                           "cross 1.0 — including SPY (lower bound 0.99). With ~80-150 trades, the "
+                           "edge is <b>not statistically distinguishable from zero</b> at 95%.", ss["Cap"]))
         S.append(PageBreak())
 
         S.append(_img(figdir / "18_random_entry.png", width=16.0 * cm))
-        S.append(Paragraph("Figura 18 — Controle de entrada aleatória. Só o SPY bate o 'long "
-                           "aleatório' (p = 0,028); QQQ/BR não — seu retorno é compatível com "
-                           "estar comprado em datas quaisquer.", ss["Cap"]))
-        S.append(Paragraph("<b>Veredito honesto.</b> O teste é implacável e instrutivo: o ganho "
-                           "aparente das estratégias é, em sua maior parte, <b>exposição comprada</b> "
-                           "a ativos que subiram — não um edge de volume robusto. O filtro de volume "
-                           "<i>adiciona seletividade</i> (ablação positiva em SPY/QQQ) e, no SPY, a "
-                           "relação preço↔volume é <i>estatisticamente real</i>. Mas nenhum sleeve "
-                           "gera alfa sobre a própria exposição, nenhum bate o risk-free a 1% de "
-                           "risco, e nenhum tem PF cujo IC 95% exclua 1,0. Conclusão: a 1% de risco, "
-                           "como estratégia autônoma, <b>não há edge econômico demonstrável</b>; o "
-                           "que sobra (no SPY) é um sinal pequeno, real, mas estatisticamente frágil "
-                           "no tamanho de amostra disponível.", ss["Body"]))
+        S.append(Paragraph("Figure 18 — Random-entry control. Only SPY beats the 'random long' "
+                           "(p = 0.028); QQQ/BR do not — their return is consistent with simply "
+                           "being long on arbitrary dates.", ss["Cap"]))
+        S.append(Paragraph("<b>Honest verdict.</b> The test is relentless and instructive: the "
+                           "apparent gain of the strategies is, for the most part, <b>long "
+                           "exposure</b> to assets that went up — not a robust volume edge. The "
+                           "volume filter <i>adds selectivity</i> (positive ablation on SPY/QQQ) "
+                           "and, on SPY, the price↔volume relationship is <i>statistically real</i>. "
+                           "But no sleeve generates alpha over its own exposure, none beats the "
+                           "risk-free rate at 1% risk, and none has a PF whose 95% CI excludes 1.0. "
+                           "Conclusion: at 1% risk, as a standalone strategy, <b>there is no "
+                           "demonstrable economic edge</b>; what remains (on SPY) is a small, real, "
+                           "but statistically fragile signal at the available sample size.", ss["Body"]))
         S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Recomendações
-    S.append(Paragraph("12. Recomendações de parâmetros", ss["H1"]))
+    # ---------------------------------------------------------------- Recommendations
+    S.append(Paragraph("12. Parameter recommendations", ss["H1"]))
     S.append(Paragraph(
-        "Com base na varredura e na validação out-of-sample, estas são as variáveis que melhor se "
-        "comportaram. <b>Importante (à luz do §11):</b> estas recomendações descrevem a "
-        "configuração <i>menos ruim</i> e mais robusta historicamente — não um edge econômico "
-        "comprovado. Trate-as como ponto de partida para estudo e paper trading, não como sistema "
-        "pronto para capital real.", ss["Body"]))
+        "Based on the sweep and the out-of-sample validation, these are the variables that behaved "
+        "best. <b>Important (in light of §11):</b> these recommendations describe the <i>least "
+        "bad</i> and most historically robust configuration — not a proven economic edge. Treat "
+        "them as a starting point for study and paper trading, not as a system ready for real "
+        "capital.", ss["Body"]))
 
     rec_rows = [
-        ["Variável", "Perfil conservador", "Perfil agressivo"],
-        ["Instrumentos", "Só ETFs de índice líquidos (SPY, QQQ)", "ETFs + nomes voláteis (VALE3) com breakout"],
-        ["Estratégia", "Exaustão de volume / Edge-to-Edge (long)", "Breakout da VA + Exaustão (long)"],
-        ["Direção", "Apenas comprado", "Comprado (shorts perderam em tudo)"],
-        ["Janela do perfil/lookback", "40 dias", "20 dias"],
-        ["Value Area", "0,80 (mais seletivo)", "0,70"],
-        ["Stop", "≈ 2,5–3,0 × ATR (largo)", "≈ 1,5 × ATR (curto)"],
-        ["Alvo", "POC / borda oposta", "5 × ATR (deixa correr)"],
-        ["Holding máximo", "10 dias", "20 dias"],
-        ["Filtro de tendência", "Ligado (não fadeia tendência)", "Ligado para breakout"],
-        ["Risco por trade", "0,5–1,0% do capital", "2–3% do capital"],
-        ["Alavancagem", "1× (nenhuma)", "até 3× no portfólio diversificado"],
+        ["Variable", "Conservative profile", "Aggressive profile"],
+        ["Instruments", "Liquid index ETFs only (SPY, QQQ)", "ETFs + volatile names (VALE3) with breakout"],
+        ["Strategy", "Volume exhaustion / Edge-to-Edge (long)", "VA breakout + Exhaustion (long)"],
+        ["Direction", "Long only", "Long (shorts lost on everything)"],
+        ["Profile window/lookback", "40 days", "20 days"],
+        ["Value Area", "0.80 (more selective)", "0.70"],
+        ["Stop", "≈ 2.5-3.0 × ATR (wide)", "≈ 1.5 × ATR (tight)"],
+        ["Target", "POC / opposite edge", "5 × ATR (let it run)"],
+        ["Maximum holding", "10 days", "20 days"],
+        ["Trend filter", "On (does not fade trend)", "On for breakout"],
+        ["Risk per trade", "0.5-1.0% of capital", "2-3% of capital"],
+        ["Leverage", "1× (none)", "up to 3× in the diversified portfolio"],
     ]
     rt = _table(rec_rows, [4.2 * cm, 6.0 * cm, 6.0 * cm], align="LEFT")
     S.append(rt)
-    S.append(Paragraph("Tabela 7 — Variáveis recomendadas. <b>Regra de ouro:</b> o perfil "
-                       "conservador prioriza baixo drawdown e robustez entre ativos; o agressivo "
-                       "aceita drawdown maior por mais CAGR, sem ilusão de Sharpe superior.", ss["Cap"]))
+    S.append(Paragraph("Table 7 — Recommended variables. <b>Rule of thumb:</b> the conservative "
+                       "profile prioritizes low drawdown and robustness across assets; the "
+                       "aggressive one accepts larger drawdown for more CAGR, with no illusion of "
+                       "superior Sharpe.", ss["Cap"]))
     S.append(Paragraph(
-        "<b>O que mais melhorou os resultados (em ordem de impacto):</b> (1) operar só comprado em "
-        "índices líquidos; (2) usar a leitura de volume (exaustão/absorção no fundo) em vez do "
-        "perfil puro; (3) o filtro de tendência, que cortou o drawdown de −74% para −12% na "
-        "reversão; (4) janelas mais longas (40 dias) no sinal de exaustão; (5) confirmar com "
-        "spike de volume (signal candle) — elevou o PF do QQQ de 1,1 para 1,9; (6) diversificar "
-        "em portfólio.", ss["Body"]))
+        "<b>What improved results the most (in order of impact):</b> (1) trading long only on "
+        "liquid indices; (2) using the volume reading (exhaustion/absorption at the bottom) instead "
+        "of the raw profile; (3) the trend filter, which cut the drawdown from −74% to −12% on "
+        "reversion; (4) longer windows (40 days) on the exhaustion signal; (5) confirming with a "
+        "volume spike (signal candle) — which raised QQQ's PF from 1.1 to 1.9; (6) diversifying "
+        "into a portfolio.", ss["Body"]))
     S.append(PageBreak())
 
-    # ---------------------------------------------------------------- Limitações
-    S.append(Paragraph("13. Limitações e conclusão honesta", ss["H1"]))
+    # ---------------------------------------------------------------- Limitations
+    S.append(Paragraph("13. Limitations and honest conclusion", ss["H1"]))
     for b in [
-        "<b>Aproximação do perfil:</b> sem dados tick/intraday longos, o volume é distribuído "
-        "uniformemente no range diário. É a prática padrão, mas é uma aproximação do perfil 'real'.",
-        "<b>Regra dos 80% e day-types intraday</b> foram testados em amostra curta (~60 dias de 30 "
-        "min) — leitura indicativa. Um teste definitivo exige dados intraday históricos pagos.",
-        "<b>Edge pequeno e cost-sensitive:</b> sobrevive OOS, mas evapora sob custos altos. Exige "
-        "execução barata e disciplina; não tolera over-trading.",
-        "<b>Sobrevivência e regime:</b> 33 anos incluem vários regimes, mas o futuro pode diferir. "
-        "O walk-forward mitiga, não elimina, esse risco.",
-        "<b>Base rate do day trade (USP/FGV):</b> dos que persistiram +300 dias, 97% perderam "
-        "dinheiro e não houve evidência de aprendizado. Edge estatístico no backtest ≠ lucro "
-        "garantido para um operador real.",
+        "<b>Profile approximation:</b> without long tick/intraday data, volume is distributed "
+        "uniformly across the daily range. This is standard practice, but it is an approximation of "
+        "the 'real' profile.",
+        "<b>The 80% Rule and intraday day-types</b> were tested on a short sample (~60 days of "
+        "30-min bars) — an indicative reading. A definitive test requires paid historical intraday "
+        "data.",
+        "<b>Small, cost-sensitive edge:</b> it survives OOS but evaporates under high costs. It "
+        "requires cheap execution and discipline; it does not tolerate over-trading.",
+        "<b>Survivorship and regime:</b> 33 years include several regimes, but the future may "
+        "differ. Walk-forward mitigates, but does not eliminate, this risk.",
+        "<b>Day-trading base rate (USP/FGV):</b> of those who persisted for +300 days, 97% lost "
+        "money and there was no evidence of learning. A statistical edge in a backtest ≠ guaranteed "
+        "profit for a real trader.",
     ]:
         S.append(Paragraph("• " + b, ss["VBullet"]))
     S.append(Spacer(1, 0.3 * cm))
     S.append(Paragraph(
-        "<b>Conclusão.</b> O Volume Profile não é mágica nem charlatanismo. É uma lente legítima de "
-        "leilão (por que o preço gruda onde há volume) e fornece níveis objetivos, e o filtro de "
-        "volume demonstravelmente adiciona seletividade. Mas a parte mais honesta deste estudo é o "
-        "§11: sob falsificação rigorosa, o que parecia um edge é, em boa parte, <b>exposição "
-        "comprada</b> a ativos que subiram. Só no SPY o sinal de volume é estatisticamente real — e "
-        "mesmo lá não gera alfa sobre a própria exposição, não bate o risk-free a 1% de risco, e "
-        "seu Profit Factor não é distinguível de 1,0 a 95% de confiança. <b>Não encontramos um edge "
-        "econômico autônomo e robusto.</b> Isso não invalida o Volume Profile como ferramenta de "
-        "contexto e gestão de risco — invalida a promessa de lucro fácil. A métrica que importa é a "
-        "expectância após custos, validada contra o acaso; e a evidência pede ceticismo, não fé.",
+        "<b>Conclusion.</b> Volume Profile is neither magic nor charlatanism. It is a legitimate "
+        "auction lens (why price sticks where there is volume) and provides objective levels, and "
+        "the volume filter demonstrably adds selectivity. But the most honest part of this study is "
+        "§11: under rigorous falsification, what looked like an edge is, to a large extent, "
+        "<b>long exposure</b> to assets that went up. Only on SPY is the volume signal "
+        "statistically real — and even there it generates no alpha over its own exposure, does not "
+        "beat the risk-free rate at 1% risk, and its Profit Factor is not distinguishable from 1.0 "
+        "at 95% confidence. <b>We found no standalone, robust economic edge.</b> This does not "
+        "invalidate Volume Profile as a tool for context and risk management — it invalidates the "
+        "promise of easy profit. The metric that matters is expectancy after costs, validated "
+        "against chance; and the evidence calls for skepticism, not faith.",
         ss["Body"]))
     S.append(Spacer(1, 0.5 * cm))
-    S.append(Paragraph("<i>Gerado por pipeline reproduzível (Python). Código e dados versionados. "
-                       "Não é recomendação de investimento.</i>", ss["Cap"]))
+    S.append(Paragraph("<i>Generated by a reproducible pipeline (Python). Code and data are "
+                       "version-controlled. Not investment advice.</i>", ss["Cap"]))
 
     doc.build(S)
     return str(out_path)

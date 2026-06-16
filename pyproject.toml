@@ -4,9 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vptrading"
-version = "0.1.0"
-description = "Backtesting da estratégia Volume Profile / Market Profile"
+version = "1.0.0"
+description = "Backtesting and falsification of the Volume Profile / Market Profile strategy on 17-33 years of data"
+readme = "README.md"
 requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Pedro Braiti" }]
+keywords = ["quantitative-finance", "backtesting", "volume-profile", "market-profile", "trading"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

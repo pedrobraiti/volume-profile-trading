@@ -1,9 +1,9 @@
-"""Classificação de day-types do Market Profile (D / P / b / Trend).
+"""Market Profile day-type classification (D / P / b / Trend).
 
-Baseado em ``volume-profile-estrategia.md`` §5. Aproximamos os tipos a partir de OHLCV diário:
-onde o volume/centro de massa do dia se concentra e quão "esticado" é o range vs. o corpo.
-Serve de filtro de regime: as táticas de *fade* (D, P, b) só valem em mercado balanceado; o Trend
-Day é o "assassino" da reversão e deve ser evitado.
+Based on ``volume-profile-strategy.md`` §5. We approximate the types from daily OHLCV: where the
+day's volume/center of mass concentrates and how "stretched" the range is versus the body.
+It serves as a regime filter: the *fade* tactics (D, P, b) only hold in a balanced market; the
+Trend Day is the "killer" of reversion and should be avoided.
 """
 
 from __future__ import annotations
@@ -12,10 +12,10 @@ from enum import Enum
 
 
 class DayType(str, Enum):
-    NORMAL_D = "D"      # balanceado, POC no centro -> fade nos extremos
-    BULLISH_P = "P"     # valor no topo, cauda fina embaixo -> viés de alta
-    BEARISH_b = "b"     # valor no fundo, cauda fina em cima -> viés de baixa
-    TREND = "Trend"     # range largo, fecha no extremo -> não brigar contra
+    NORMAL_D = "D"      # balanced, POC at center -> fade the extremes
+    BULLISH_P = "P"     # value at the top, thin tail below -> bullish bias
+    BEARISH_b = "b"     # value at the bottom, thin tail above -> bearish bias
+    TREND = "Trend"     # wide range, closes at an extreme -> don't fight it
 
 
 def classify_day_type(
@@ -27,18 +27,18 @@ def classify_day_type(
     trend_close_pct: float = 0.85,
     balanced_body_pct: float = 0.35,
 ) -> DayType:
-    """Classifica o desenho do dia a partir do OHLC.
+    """Classify the day's shape from the OHLC.
 
-    - Trend: fecha muito perto de um extremo do range (>= trend_close_pct ou <= 1-trend_close_pct).
-    - P (bullish): corpo concentrado na metade superior do range.
-    - b (bearish): corpo concentrado na metade inferior do range.
-    - D (normal): corpo pequeno e centrado.
+    - Trend: closes very near an extreme of the range (>= trend_close_pct or <= 1-trend_close_pct).
+    - P (bullish): body concentrated in the upper half of the range.
+    - b (bearish): body concentrated in the lower half of the range.
+    - D (normal): small, centered body.
     """
     rng = high - low
     if rng <= 0:
         return DayType.NORMAL_D
 
-    close_pos = (close - low) / rng  # 0 = fechou no fundo, 1 = fechou no topo
+    close_pos = (close - low) / rng  # 0 = closed at the bottom, 1 = closed at the top
     body_mid = ((open_ + close) / 2 - low) / rng
     body_size = abs(close - open_) / rng
 

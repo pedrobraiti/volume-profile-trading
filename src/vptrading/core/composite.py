@@ -1,11 +1,12 @@
-"""Composite Volume Profile em janela móvel sobre barras diárias.
+"""Rolling-window Composite Volume Profile over daily bars.
 
-Para cada pregão, constrói o perfil de volume dos últimos ``window`` dias usando **apenas barras
-anteriores** (sem lookahead) e extrai POC, VAH, VAL. É a adaptação swing do Volume Profile que
-permite backtests de décadas com dados diários gratuitos (o intraday fiel só existe para ~60 dias).
+For each trading session, it builds the volume profile of the last ``window`` days using **only
+prior bars** (no lookahead) and extracts POC, VAH, VAL. It is the swing adaptation of the Volume
+Profile that enables decades-long backtests with free daily data (faithful intraday data only
+exists for ~60 days).
 
-O resultado é cacheado em memória por (ticker_id, window, n_bins, value_area_pct), pois esses
-níveis não dependem dos parâmetros de execução do trade (stop/alvo) — assim o grid search reusa.
+The result is cached in memory by (ticker_id, window, n_bins, value_area_pct), since these levels
+do not depend on the trade execution parameters (stop/target) — so the grid search reuses them.
 """
 
 from __future__ import annotations
@@ -28,10 +29,10 @@ def rolling_composite_levels(
     value_area_pct: float = 0.70,
     cache_key: str | None = None,
 ) -> pd.DataFrame:
-    """Calcula POC/VAH/VAL por dia a partir do composite dos ``window`` dias anteriores.
+    """Compute POC/VAH/VAL per day from the composite of the previous ``window`` days.
 
-    Retorna um DataFrame alinhado ao índice de ``df`` com colunas: poc, vah, val.
-    As primeiras ``window`` linhas ficam NaN (janela insuficiente).
+    Returns a DataFrame aligned to ``df``'s index with columns: poc, vah, val.
+    The first ``window`` rows are NaN (insufficient window).
     """
     key = (cache_key, window, n_bins, round(value_area_pct, 4), len(df), df.index[-1])
     if cache_key is not None and key in _LEVEL_CACHE:

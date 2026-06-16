@@ -1,16 +1,16 @@
-"""Testes de falsificação / ablação do sleeve de Exaustão de volume.
+"""Falsification / ablation tests for the volume Exhaustion sleeve.
 
-Pergunta central: o edge vem do VOLUME e da estrutura de mercado, ou é só viés comprado /
-buy-the-dip num ativo que sobe? Reaproveitamos o mesmo harness (dados, custos, sizing) e usamos
-uma **config FIXA** (não reotimizada) — condição necessária para que o teste de permutação seja
-estatisticamente válido (sem mineração de parâmetros contaminando o resultado). Seed fixa.
+Central question: does the edge come from VOLUME and market structure, or is it just a long bias /
+buy-the-dip on a rising asset? We reuse the same harness (data, costs, sizing) and use
+a **FIXED config** (not re-optimized) — a necessary condition for the permutation test to be
+statistically valid (no parameter mining contaminating the result). Fixed seed.
 
-Cinco testes, com veredito sim/não por sleeve (instrumento):
-1. Permutação de volume — embaralha o volume (preserva distribuição, destrói relação preço↔volume).
-2. Ablação só-preço — remove o filtro de volume ("comprar nova mínima") e compara.
-3. Controle de viés long — entradas aleatórias com mesmo nº de trades e mesma distribuição de holding.
-4. Retorno excedente — alfa sobre a própria exposição (buy&hold) e vs. risk-free (CDI/T-bill).
-5. Bootstrap — IC 95% de expectância e Profit Factor (10k reamostragens).
+Five tests, with a yes/no verdict per sleeve (instrument):
+1. Volume permutation — shuffles volume (preserves the distribution, destroys the price↔volume relation).
+2. Price-only ablation — removes the volume filter ("buy a new low") and compares.
+3. Long-bias control — random entries with the same number of trades and same holding distribution.
+4. Excess return — alpha over the strategy's own exposure (buy&hold) and vs. risk-free (CDI/T-bill).
+5. Bootstrap — 95% CI of expectancy and Profit Factor (10k resamples).
 """
 
 from __future__ import annotations
@@ -24,11 +24,11 @@ from vptrading.backtest.costs import CostModel
 from vptrading.backtest.engine import run_backtest
 from vptrading.strategies.daily import DailyParams, volume_exhaustion_signals
 
-# Risk-free anualizado por moeda (aproximações documentadas; ajustáveis).
-# BRL: CDI ~14,5% a.a. (instruído). USD: média do T-bill 3m no período OOS ~2,0% a.a.
+# Annualized risk-free per currency (documented approximations; adjustable).
+# BRL: CDI ~14.5% p.a. (as instructed). USD: average 3m T-bill over the OOS period ~2.0% p.a.
 RISK_FREE = {"BR": 0.145, "US": 0.020}
 
-PRICE_ONLY_SENTINEL = 1e9  # volume_mult gigante -> filtro de volume sempre passa (só-preço)
+PRICE_ONLY_SENTINEL = 1e9  # huge volume_mult -> the volume filter always passes (price-only)
 
 
 def _backtest(df: pd.DataFrame, params: DailyParams, cost_model: CostModel):
@@ -39,7 +39,7 @@ def _backtest(df: pd.DataFrame, params: DailyParams, cost_model: CostModel):
 
 
 def volume_shuffle_test(df, params, cost_model, *, n=500, seed=0) -> dict:
-    """Teste 1 — embaralha o volume e mede a distribuição de PF/expectância."""
+    """Test 1 — shuffles volume and measures the distribution of PF/expectancy."""
     real = _backtest(df, params, cost_model).metrics
     rng = np.random.default_rng(seed)
     vol = df["Volume"].to_numpy()
@@ -48,7 +48,7 @@ def volume_shuffle_test(df, params, cost_model, *, n=500, seed=0) -> dict:
     for i in range(n):
         shuffled = df.assign(Volume=rng.permutation(vol))
         m = _backtest(shuffled, params, cost_model).metrics
-        pfs[i] = min(m.profit_factor, 10.0)  # limita inf para estatística
+        pfs[i] = min(m.profit_factor, 10.0)  # cap inf for the statistic
         exps[i] = m.expectancy_pct
     real_pf = min(real.profit_factor, 10.0)
     return {
@@ -60,7 +60,7 @@ def volume_shuffle_test(df, params, cost_model, *, n=500, seed=0) -> dict:
 
 
 def price_only_ablation(df, params, cost_model) -> dict:
-    """Teste 2 — remove o filtro de volume (só 'comprar nova mínima')."""
+    """Test 2 — removes the volume filter (just 'buy a new low')."""
     mv = _backtest(df, params, cost_model).metrics
     mp = _backtest(df, replace(params, volume_mult=PRICE_ONLY_SENTINEL), cost_model).metrics
     return {
@@ -72,7 +72,7 @@ def price_only_ablation(df, params, cost_model) -> dict:
 
 
 def random_entry_test(df, real_trades, cost_model, *, n=500, seed=1) -> dict:
-    """Teste 3 — entradas aleatórias com mesmo nº de trades e mesma distribuição de holding."""
+    """Test 3 — random entries with the same number of trades and same holding distribution."""
     open_ = df["Open"].to_numpy()
     close = df["Close"].to_numpy()
     N = len(df)
@@ -86,18 +86,18 @@ def random_entry_test(df, real_trades, cost_model, *, n=500, seed=1) -> dict:
 
     means = np.empty(n)
     for i in range(n):
-        idx = rng.integers(0, N - 1, size=n_tr)       # dia do sinal; entrada em open[idx+1]
+        idx = rng.integers(0, N - 1, size=n_tr)       # signal day; entry at open[idx+1]
         h = rng.choice(holdings, size=n_tr)
         entry = np.minimum(idx + 1, N - 1)
         exit_ = np.minimum(entry + h - 1, N - 1)
-        rets = close[exit_] / open_[entry] - 1.0 - rt_cost   # long, custos round-trip
+        rets = close[exit_] / open_[entry] - 1.0 - rt_cost   # long, round-trip costs
         means[i] = rets.mean()
     return {"real_mean": real_mean, "rand_means": means,
             "p_value": float(np.mean(means >= real_mean))}
 
 
 def excess_return(daily_returns: pd.Series, df: pd.DataFrame, market: str) -> dict:
-    """Teste 4 — alfa sobre a própria exposição (buy&hold) e vs. risk-free."""
+    """Test 4 — alpha over the strategy's own exposure (buy&hold) and vs. risk-free."""
     dr = daily_returns[daily_returns.index.isin(df.index)]
     if len(dr) < 2:
         return {}
@@ -121,7 +121,7 @@ def excess_return(daily_returns: pd.Series, df: pd.DataFrame, market: str) -> di
 
 
 def bootstrap_ci(trade_returns, *, n=10000, seed=2) -> dict:
-    """Teste 5 — IC 95% (bootstrap) de expectância e Profit Factor."""
+    """Test 5 — 95% CI (bootstrap) of expectancy and Profit Factor."""
     r = np.asarray(trade_returns, dtype=float)
     k = len(r)
     if k < 5:
@@ -148,7 +148,7 @@ def bootstrap_ci(trade_returns, *, n=10000, seed=2) -> dict:
 
 def run_suite(instruments: dict, loaders, cost_models, params: DailyParams, *,
               n_perm=500, n_boot=10000) -> dict:
-    """Roda os 5 testes para o sleeve de Exaustão em cada instrumento. Retorna dict completo."""
+    """Run the 5 tests for the Exhaustion sleeve on each instrument. Returns a complete dict."""
     out = {"params": params.__dict__.copy(), "n_perm": n_perm, "n_boot": n_boot,
            "risk_free": RISK_FREE, "sleeves": {}}
     for s_i, (tk, inst) in enumerate(instruments.items()):

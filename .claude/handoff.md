@@ -4,9 +4,29 @@
 > de forma relativamente detalhada. É o PRIMEIRO arquivo que a próxima sessão lê.
 > Mantenha-o vivo e específico — detalhado o bastante para retomar sem reconstruir o raciocínio.
 
-**Última atualização:** 2026-06-09 — projeto COMPLETO + suíte de falsificação (2ª rodada)
+**Última atualização:** 2026-06-16 — repo tornado PÚBLICO + projeto inteiro traduzido para INGLÊS
 
-## ATUALIZAÇÃO IMPORTANTE (falsificação)
+## ATUALIZAÇÃO MAIS RECENTE (publicação / inglês)
+O usuário pediu para tornar o repo público e profissional, inspirado em `paper2004`. Feito:
+- **Tudo traduzido para inglês**: todo o código (docstrings, comentários, strings de display),
+  scripts, testes, o doc de referência (renomeado `volume-profile-estrategia.md` →
+  `volume-profile-strategy.md`) e o **PDF de 19 páginas** (renomeado p/ `volume_profile_study.pdf`).
+  As CHAVES internas de dicionário foram mantidas (algumas em PT, ex.: `apenas_positivos_OOS`,
+  `passa_todos`, keys de `sizing_sweep`/`param_profiles`) para NÃO precisar re-rodar os experimentos;
+  onde essas chaves vazavam para display (fig 11 e Tabela 4 do PDF) há mapeamento PT→EN no charts.py
+  e no pdf_report.py. As figuras foram regeradas em inglês (revisadas visualmente: 01,02,09,11,17,19
+  + páginas 1-2 do PDF).
+- **README reescrito** em inglês no estilo paper2004: badges, TL;DR honesto, TOC, seções com figuras
+  embutidas + tabelas com números reais, conclusões, "reproduce it", estrutura, disclaimer.
+- **Figuras e o PDF agora versionados** (`.gitignore` passou a permitir `output/figures/` e
+  `output/volume_profile_study.pdf`) para renderizarem direto no GitHub.
+- **Polimento GitHub**: `LICENSE` (MIT), `.gitattributes` marca PNG/PDF/PKL/Parquet como binário,
+  `pyproject.toml` com metadados (v1.0.0, license, authors, keywords), `requirements.txt` corrigido
+  (yfinance 0.2.51 → 1.4.1, que é o que está instalado). Repo público + description + topics + tag.
+- `.claude/*` e `CLAUDE.md` ficaram em PT de propósito (memória/working files internos).
+- 9 testes passando; `pip install -e .` necessário para os scripts (pytest usa pythonpath=src).
+
+## ATUALIZAÇÃO ANTERIOR (falsificação)
 A Claude web pediu testes de falsificação/ablação. Implementei `src/vptrading/analysis/
 falsification.py` + `scripts/run_falsification.py` (5 testes: permutação de volume, ablação
 só-preço, entrada aleatória, retorno excedente vs exposição/risk-free, bootstrap IC 95%). Config

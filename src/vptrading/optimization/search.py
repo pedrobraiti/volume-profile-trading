@@ -1,14 +1,14 @@
-"""Grid search e walk-forward para as estratégias diárias.
+"""Grid search and walk-forward for the daily strategies.
 
-Estratégia de avaliação eficiente e sem lookahead:
-- Cada combinação de parâmetros é backtestada UMA vez sobre o histórico completo (os níveis do
-  composite já usam só dados passados). O resultado fica em cache.
-- IS/OOS são obtidos *fatiando* trades e retornos diários por janela de data — barato e consistente.
+Efficient, lookahead-free evaluation strategy:
+- Each parameter combination is backtested ONCE over the full history (the composite levels
+  already use only past data). The result is cached.
+- IS/OOS are obtained by *slicing* trades and daily returns by date window — cheap and consistent.
 
-Walk-forward (âncora deslizante): para cada fold, otimiza nos dados de treino (in-sample), escolhe
-os melhores parâmetros por uma função-objetivo sujeita a um mínimo de trades, e mede o desempenho
-realizado no teste (out-of-sample) — dados que o otimizador nunca viu. A concatenação dos trechos
-OOS é o resultado honesto da estratégia.
+Walk-forward (sliding anchor): for each fold, optimize on the training data (in-sample), choose
+the best parameters via an objective function subject to a minimum number of trades, and measure the
+realized performance on the test set (out-of-sample) — data the optimizer never saw. The concatenation
+of the OOS segments is the honest result of the strategy.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ SignalFn = Callable[..., pd.DataFrame]
 
 
 def expand_daily_grid(base: DailyParams, grid: dict[str, list]) -> list[DailyParams]:
-    """Expande um dicionário {param: [valores]} em uma lista de DailyParams."""
+    """Expand a {param: [values]} dictionary into a list of DailyParams."""
     keys = list(grid.keys())
     combos = list(itertools.product(*[grid[k] for k in keys]))
     return [replace(base, **dict(zip(keys, combo))) for combo in combos]
@@ -44,7 +44,7 @@ def run_daily_strategy(
     risk_per_trade: float = 0.01,
     max_leverage: float = 1.0,
 ) -> BacktestResult:
-    """Roda uma estratégia diária no histórico completo (holding vem de params)."""
+    """Run a daily strategy over the full history (holding comes from params)."""
     signals = signal_fn(df, params, cache_key=cache_key)
     return run_backtest(
         df,
@@ -59,7 +59,7 @@ def run_daily_strategy(
 def metrics_on_window(
     result: BacktestResult, start: pd.Timestamp | None, end: pd.Timestamp | None
 ) -> Metrics:
-    """Recalcula métricas restritas a uma janela [start, end) de datas de ENTRADA."""
+    """Recompute metrics restricted to a window [start, end) of ENTRY dates."""
     trades = [
         t
         for t in result.trades
@@ -83,7 +83,7 @@ def full_sample_grid(
     risk_per_trade: float = 0.01,
     max_leverage: float = 1.0,
 ) -> tuple[pd.DataFrame, dict[int, BacktestResult]]:
-    """Backtesta cada combinação no histórico completo. Retorna (tabela de métricas, resultados)."""
+    """Backtest each combination over the full history. Returns (metrics table, results)."""
     rows = []
     results: dict[int, BacktestResult] = {}
     for idx, params in enumerate(params_list):
@@ -118,10 +118,10 @@ def full_sample_grid(
 
 
 def default_objective(m: Metrics, min_trades: int = 30) -> float:
-    """Pontuação para escolher parâmetros no in-sample.
+    """Score for choosing parameters in-sample.
 
-    Prioriza expectância por trade (em R), penaliza amostras pequenas e drawdown. Retorna -inf se
-    não houver trades suficientes (parâmetros instáveis não são selecionáveis).
+    Prioritizes expectancy per trade (in R), penalizes small samples and drawdown. Returns -inf if
+    there are not enough trades (unstable parameters are not selectable).
     """
     if m.n_trades < min_trades:
         return float("-inf")
@@ -131,8 +131,8 @@ def default_objective(m: Metrics, min_trades: int = 30) -> float:
 
 @dataclass
 class WalkForwardResult:
-    folds: pd.DataFrame              # uma linha por fold: params escolhidos, métricas IS e OOS
-    oos_metrics: Metrics            # métricas da concatenação de todos os trechos OOS
+    folds: pd.DataFrame              # one row per fold: chosen params, IS and OOS metrics
+    oos_metrics: Metrics            # metrics of the concatenation of all OOS segments
     oos_daily_returns: pd.Series
     oos_trades: list
 
@@ -151,11 +151,11 @@ def walk_forward(
     min_trades_is: int = 30,
     objective: Callable[[Metrics], float] = None,
 ) -> WalkForwardResult:
-    """Walk-forward com âncora deslizante (treino -> teste -> avança)."""
+    """Walk-forward with a sliding anchor (train -> test -> advance)."""
     if objective is None:
         objective = lambda m: default_objective(m, min_trades_is)  # noqa: E731
 
-    # Backtesta todas as combinações uma vez no histórico completo (reaproveitado em todos os folds).
+    # Backtest all combinations once over the full history (reused across all folds).
     _, results = full_sample_grid(
         df,
         signal_fn,
@@ -182,7 +182,7 @@ def walk_forward(
         if train_end >= end or test_end <= train_end:
             break
 
-        # Escolhe os melhores parâmetros usando SÓ o in-sample.
+        # Choose the best parameters using ONLY the in-sample data.
         best_idx, best_score, best_is = None, float("-inf"), None
         for idx, res in results.items():
             m_is = metrics_on_window(res, train_start, train_end)
@@ -218,7 +218,7 @@ def walk_forward(
                 }
             )
 
-        train_start = train_start + test_delta  # avança a âncora pelo tamanho do teste
+        train_start = train_start + test_delta  # advance the anchor by the test length
 
     oos_returns = (
         pd.concat(oos_returns_parts).sort_index() if oos_returns_parts else pd.Series(dtype=float)

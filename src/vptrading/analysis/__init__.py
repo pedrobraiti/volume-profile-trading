@@ -1,4 +1,4 @@
-"""Estudos analíticos que testam diretamente as afirmações do documento de referência."""
+"""Analytical studies that directly test the claims of the reference document."""
 
 from vptrading.analysis.studies import (
     combine_portfolio_returns,

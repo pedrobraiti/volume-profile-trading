@@ -1,8 +1,8 @@
-"""Métricas de performance — com ênfase em EXPECTÂNCIA após custos.
+"""Performance metrics — with emphasis on EXPECTANCY after costs.
 
-O documento de referência (§9, §11) é explícito: *taxa de acerto ≠ lucro*. Setups de reversão têm
-win rate alto e perdas assimétricas; o que decide é a expectância depois de custos ao longo de
-centenas de trades. Por isso a expectância é a métrica-rainha, acompanhada de risco/retorno.
+The reference document (§9, §11) is explicit: *win rate ≠ profit*. Reversal setups have a
+high win rate and asymmetric losses; what matters is expectancy after costs across
+hundreds of trades. Hence expectancy is the headline metric, accompanied by risk/return.
 """
 
 from __future__ import annotations
@@ -17,30 +17,30 @@ TRADING_DAYS_PER_YEAR = 252
 
 @dataclass
 class Trade:
-    """Um trade fechado."""
+    """A closed trade."""
 
     entry_date: pd.Timestamp
     exit_date: pd.Timestamp
     direction: int           # +1 long, -1 short
     entry_price: float
     exit_price: float
-    return_pct: float        # retorno líquido (após custos) sobre o notional
-    r_multiple: float        # resultado em múltiplos do risco inicial (R)
+    return_pct: float        # net return (after costs) on the notional
+    r_multiple: float        # result in multiples of the initial risk (R)
     holding_days: int
     exit_reason: str         # "target", "stop", "time", "eod"
 
 
 @dataclass
 class Metrics:
-    """Conjunto de métricas de um backtest."""
+    """Set of metrics for a backtest."""
 
     n_trades: int = 0
     win_rate: float = 0.0
     avg_win_pct: float = 0.0
     avg_loss_pct: float = 0.0
     payoff_ratio: float = 0.0
-    expectancy_pct: float = 0.0      # retorno líquido médio por trade (%)
-    expectancy_r: float = 0.0        # expectância média por trade em R
+    expectancy_pct: float = 0.0      # average net return per trade (%)
+    expectancy_r: float = 0.0        # average expectancy per trade in R
     profit_factor: float = 0.0
     total_return_pct: float = 0.0
     cagr_pct: float = 0.0
@@ -53,7 +53,7 @@ class Metrics:
     equity_curve: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))
 
     def as_row(self) -> dict:
-        """Versão plana (sem a curva) para tabelas/CSV."""
+        """Flat version (without the curve) for tables/CSV."""
         d = self.__dict__.copy()
         d.pop("equity_curve", None)
         return d
@@ -73,12 +73,12 @@ def compute_metrics(
     daily_returns: pd.Series | None = None,
     n_periods: int | None = None,
 ) -> Metrics:
-    """Calcula as métricas a partir da lista de trades e (opcional) da série de retornos diários.
+    """Compute the metrics from the list of trades and (optionally) the daily returns series.
 
     Args:
-        trades: trades fechados.
-        daily_returns: retorno diário do portfólio (para Sharpe/Sortino/drawdown baseados em tempo).
-        n_periods: nº de pregões cobertos (para anualizar CAGR quando não há série diária).
+        trades: closed trades.
+        daily_returns: daily portfolio return (for time-based Sharpe/Sortino/drawdown).
+        n_periods: number of trading days covered (to annualize CAGR when no daily series exists).
     """
     m = Metrics(n_trades=len(trades))
 
@@ -101,7 +101,7 @@ def compute_metrics(
         m.profit_factor = float(gross_profit / gross_loss) if gross_loss > 0 else float("inf")
         m.avg_holding_days = float(np.mean([t.holding_days for t in trades]))
 
-        # Curva de capital composta a partir dos retornos por trade (1 posição por vez).
+        # Compounded equity curve from per-trade returns (one position at a time).
         equity = np.cumprod(1.0 + rets)
         m.total_return_pct = float(equity[-1] - 1.0)
         m.max_drawdown_pct = _max_drawdown(equity)

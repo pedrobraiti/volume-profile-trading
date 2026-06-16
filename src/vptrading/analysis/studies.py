@@ -1,13 +1,13 @@
-"""Estudos que confrontam as afirmações do documento com os dados.
+"""Studies that confront the document's claims with the data.
 
-- **Day-types (§5):** a tese diz que "P" é bullish, "b" é bearish, "D" é rotação (fade funciona) e
-  "Trend" é o assassino da reversão. Medimos o retorno futuro condicional a cada tipo.
-- **Divergência de volume (§6):** preço fazendo novas máximas com volume decrescente sinalizaria
-  reversão. Medimos o retorno futuro após sinais de divergência.
-- **Regra dos 80% (§8):** além do P&L, diagnosticamos com que frequência, dado o gatilho
-  (abriu fora + reentrou/aceitou), o preço de fato atravessa toda a VA até o extremo oposto.
-- **Portfólio:** combina sleeves (instrumento × estratégia) em capital igualitário para elevar a
-  exposição e diversificar — atacando o problema de baixa exposição das estratégias isoladas.
+- **Day-types (§5):** the thesis holds that "P" is bullish, "b" is bearish, "D" is rotation (fading
+  works) and "Trend" is the killer of reversals. We measure the forward return conditional on each type.
+- **Volume divergence (§6):** price making new highs with declining volume would signal
+  reversal. We measure the forward return after divergence signals.
+- **80% Rule (§8):** beyond P&L, we diagnose how often, given the trigger
+  (opened outside + re-entered/accepted), price actually traverses the entire VA to the opposite extreme.
+- **Portfolio:** combines sleeves (instrument × strategy) at equal capital to raise
+  exposure and diversify — addressing the low-exposure problem of the standalone strategies.
 """
 
 from __future__ import annotations
@@ -19,9 +19,9 @@ from vptrading.core.daytype import DayType, classify_day_type
 
 
 def day_type_forward_returns(df: pd.DataFrame, horizons: tuple[int, ...] = (1, 5, 10)) -> pd.DataFrame:
-    """Retorno futuro médio (e win rate) condicionado ao day-type de cada dia.
+    """Average forward return (and win rate) conditioned on each day's day-type.
 
-    Retorna uma tabela: linhas = day types, colunas = (n, e por horizonte: mean%, win%).
+    Returns a table: rows = day types, columns = (n, and per horizon: mean%, win%).
     """
     close = df["Close"].to_numpy()
     types = [
@@ -49,11 +49,11 @@ def day_type_forward_returns(df: pd.DataFrame, horizons: tuple[int, ...] = (1, 5
 def volume_divergence_study(
     df: pd.DataFrame, *, lookback: int = 20, horizon: int = 5
 ) -> dict:
-    """Mede o retorno futuro após divergências de volume (§6).
+    """Measure the forward return after volume divergences (§6).
 
-    Divergência baixista: novo topo de ``lookback`` dias com volume abaixo da média -> esperaria-se
-    fraqueza. Divergência altista: novo fundo com volume abaixo da média -> esperaria-se fundo.
-    Retorna estatísticas de retorno futuro de ``horizon`` dias para cada caso e para o baseline.
+    Bearish divergence: new ``lookback``-day high with below-average volume -> weakness would be
+    expected. Bullish divergence: new low with below-average volume -> a bottom would be expected.
+    Returns ``horizon``-day forward return statistics for each case and for the baseline.
     """
     close = df["Close"]
     vol = df["Volume"]
@@ -67,8 +67,8 @@ def volume_divergence_study(
 
     fwd = close.shift(-horizon) / close - 1.0
 
-    bearish = new_high & low_vol   # novo topo sem volume
-    bullish = new_low & low_vol    # novo fundo sem volume
+    bearish = new_high & low_vol   # new high without volume
+    bullish = new_low & low_vol    # new low without volume
 
     def stats(mask):
         v = fwd[mask].dropna()
@@ -90,15 +90,15 @@ def volume_divergence_study(
 def volume_event_study(
     df: pd.DataFrame, *, window: int = 60, horizon: int = 5, hi_pct: float = 0.75
 ) -> dict:
-    """Testa as três leituras de volume "cru" do §6 contra o retorno futuro.
+    """Test the three "raw" volume readings from §6 against the forward return.
 
-    - **Movimento saudável** (esforço=resultado): candle de alta com range grande E volume alto ->
-      espera-se continuação (retorno futuro positivo).
-    - **Absorção no topo**: nova máxima + volume muito alto + corpo pequeno (uma "parede" absorve) ->
-      espera-se reversão para baixo (retorno futuro negativo).
-    - **Absorção no fundo**: nova mínima + volume muito alto + corpo pequeno -> reversão para cima.
+    - **Healthy move** (effort=result): up candle with large range AND high volume ->
+      continuation is expected (positive forward return).
+    - **Absorption at the top**: new high + very high volume + small body (a "wall" absorbs) ->
+      a downside reversal is expected (negative forward return).
+    - **Absorption at the bottom**: new low + very high volume + small body -> an upside reversal.
 
-    Compara o retorno futuro de ``horizon`` dias de cada evento com o baseline.
+    Compares each event's ``horizon``-day forward return with the baseline.
     """
     close = df["Close"]
     open_ = df["Open"]
@@ -138,7 +138,7 @@ def volume_event_study(
 
 
 def rule80_diagnostics(trades: list) -> dict:
-    """Diagnóstico da Regra dos 80%: dado o gatilho, com que frequência atinge o extremo oposto."""
+    """80% Rule diagnostic: given the trigger, how often it reaches the opposite extreme."""
     if not trades:
         return {"n": 0, "traverse_rate": np.nan, "win_rate": np.nan, "stop_rate": np.nan}
     n = len(trades)
@@ -147,7 +147,7 @@ def rule80_diagnostics(trades: list) -> dict:
     wins = sum(1 for t in trades if t.return_pct > 0)
     return {
         "n": n,
-        "traverse_rate": traverse / n,   # comparar com a alegação de ~80%
+        "traverse_rate": traverse / n,   # compare with the ~80% claim
         "stop_rate": stops / n,
         "win_rate": wins / n,
     }
@@ -156,16 +156,16 @@ def rule80_diagnostics(trades: list) -> dict:
 def combine_portfolio_returns(
     sleeves: dict[str, pd.Series], *, weights: dict[str, float] | None = None
 ) -> pd.Series:
-    """Combina retornos diários de vários sleeves em um portfólio (capital igualitário por padrão).
+    """Combine daily returns from several sleeves into a portfolio (equal capital by default).
 
-    Cada sleeve é a série de retornos diários (já escalada por risco) de um par instrumento×estratégia.
-    O portfólio aloca peso fixo a cada sleeve e soma as contribuições diárias.
+    Each sleeve is the daily returns series (already risk-scaled) of an instrument×strategy pair.
+    The portfolio allocates a fixed weight to each sleeve and sums the daily contributions.
     """
     if not sleeves:
         return pd.Series(dtype=float)
-    df = pd.DataFrame(sleeves)  # NaN onde o sleeve ainda não existe (histórico mais curto)
+    df = pd.DataFrame(sleeves)  # NaN where the sleeve does not yet exist (shorter history)
     if weights is None:
-        # Peso igual apenas entre os sleeves DISPONÍVEIS em cada dia (renormaliza ao surgirem).
+        # Equal weight only among the sleeves AVAILABLE each day (renormalizes as they appear).
         available = df.notna()
         day_weights = available.div(available.sum(axis=1).replace(0, np.nan), axis=0)
         return (df.fillna(0.0) * day_weights).sum(axis=1).fillna(0.0)

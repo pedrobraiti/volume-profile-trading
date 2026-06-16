@@ -1,13 +1,13 @@
-"""Engine de backtest event-driven sobre barras diárias.
+"""Event-driven backtest engine over daily bars.
 
-Premissas (transparentes e documentadas no relatório):
-- Uma posição por vez (sem pirâmide). Sinal no fechamento do dia t -> entrada na abertura de t+1.
-- Sem lookahead: os níveis do perfil usam apenas dados anteriores ao dia avaliado.
-- Saída por stop, alvo ou tempo (max_holding_days). Se stop e alvo couberem no mesmo dia, assume-se
-  **stop primeiro** (pessimista). Gaps são preenchidos no pior preço para o stop e no preço de
-  abertura para o alvo.
-- Sizing por risco: a posição é dimensionada para arriscar ``risk_per_trade`` do capital no stop,
-  limitada por ``max_leverage``. Custos round-trip descontados conforme o modelo do mercado.
+Assumptions (transparent and documented in the report):
+- One position at a time (no pyramiding). Signal at the close of day t -> entry at the open of t+1.
+- No lookahead: profile levels use only data prior to the evaluated day.
+- Exit by stop, target or time (max_holding_days). If stop and target both fall on the same day,
+  **stop first** is assumed (pessimistic). Gaps are filled at the worst price for the stop and at the
+  open price for the target.
+- Risk-based sizing: the position is sized to risk ``risk_per_trade`` of capital at the stop,
+  capped by ``max_leverage``. Round-trip costs are deducted according to the market model.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ def run_backtest(
     risk_per_trade: float = 0.01,
     max_leverage: float = 1.0,
 ) -> BacktestResult:
-    """Simula a estratégia. ``signals`` deve ter colunas: signal (+1/-1/0), stop, target."""
+    """Simulate the strategy. ``signals`` must have columns: signal (+1/-1/0), stop, target."""
     open_ = df["Open"].to_numpy(dtype=float)
     high = df["High"].to_numpy(dtype=float)
     low = df["Low"].to_numpy(dtype=float)
@@ -83,7 +83,7 @@ def run_backtest(
             o, h, l = open_[j], high[j], low[j]
             if direction == 1:
                 if l <= stop:
-                    exit_price = min(stop, o)  # gap desfavorável preenche na abertura
+                    exit_price = min(stop, o)  # unfavorable gap fills at the open
                     exit_idx, exit_reason = j, "stop"
                     break
                 if h >= target:
@@ -119,12 +119,12 @@ def run_backtest(
             )
         )
 
-        # Marca a posição a mercado dia-a-dia para a curva de capital baseada em tempo.
+        # Mark the position to market day-by-day for the time-based equity curve.
         for j in range(entry_idx, exit_idx + 1):
             ref = entry_price if j == entry_idx else close[j - 1]
             px = exit_price if j == exit_idx else close[j]
             daily_ret[j] += fraction * direction * (px / ref - 1.0)
-        daily_ret[exit_idx] -= fraction * rt_cost  # custo round-trip no dia da saída
+        daily_ret[exit_idx] -= fraction * rt_cost  # round-trip cost on the exit day
 
         i = exit_idx + 1
 
