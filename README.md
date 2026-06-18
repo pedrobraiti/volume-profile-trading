@@ -18,26 +18,26 @@ you account for costs, overfitting and plain long exposure?"** The answer, told 
 
 ## TL;DR
 
-- 📈 **A real but modest edge exists on the long side of liquid indices.** Out-of-sample, every strategy
+-  **A real but modest edge exists on the long side of liquid indices.** Out-of-sample, every strategy
   is profitable on QQQ and SPY (QQQ Edge-to-Edge: Profit Factor **2.06**; QQQ Volume exhaustion:
   expectancy **+1.80%/trade**).
-- 🔍 **"Volume reading" beats the profile geometry.** Buying *exhaustion / no-supply* (new lows on
+-  **"Volume reading" beats the profile geometry.** Buying *exhaustion / no-supply* (new lows on
   below-average volume) was the most robust tactic OOS on index ETFs (PF **1.5–2.2**). Requiring a
   volume *signal candle* lifts QQQ Edge-to-Edge from PF **1.14 → 1.89**.
 - 🇧🇷 **It fails on trending Brazilian single names.** PETR4 and VALE3 produced negative expectancy on
   almost everything — exactly what mean-reversion theory predicts in trend.
-- 🧪 **Under falsification it does not survive as a standalone strategy.** Volume permutation, price-only
+-  **Under falsification it does not survive as a standalone strategy.** Volume permutation, price-only
   ablation, random-entry controls, excess-return and bootstrap tests show the gain is *largely long
   exposure to assets that rose*. **No sleeve** generates alpha over its own exposure, beats the
   risk-free rate at 1% risk, or has a Profit Factor whose 95% CI excludes 1.0. Only **SPY** shows a
   statistically real volume signal — small and fragile in-sample.
-- ⌛ **Two famous "legends" do not hold up.** The 80% Rule does not traverse 80% of the time and loses
+-  **Two famous "legends" do not hold up.** The 80% Rule does not traverse 80% of the time and loses
   after costs; day-types do not predict continuation (if anything, they revert).
 
 > **One-sentence verdict:** Volume Profile is a legitimate *context lens* and the volume filter adds
 > real selectivity, but there is no robust, standalone economic edge — it is not a "secret formula".
 
-📄 **Full 19-page technical report:** [`output/volume_profile_study.pdf`](output/volume_profile_study.pdf)
+ **Full 19-page technical report:** [`output/volume_profile_study.pdf`](output/volume_profile_study.pdf)
 
 ---
 
